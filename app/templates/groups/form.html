@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}{{ '編輯' if mode == 'edit' else '新增' }}分組 — Config Manager{% endblock %}
+{% block head_extra %}
+<style>
+    .member-list { max-height: 320px; overflow-y: auto; border: 1px solid #dee2e6;
+                   border-radius: .375rem; padding: .75rem 1rem; background: #fff; }
+    .member-list ul { list-style: none; padding-left: 0; margin-bottom: 0; }
+    .member-list li { padding: .25rem 0; }
+    .member-list input[type=checkbox] { margin-right: .5rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="mx-auto" style="max-width: 720px;">
+    <div class="d-flex align-items-center mb-4">
+        <h3 class="mb-0">
+            <i class="bi bi-{{ 'pencil-square' if mode == 'edit' else 'plus-square' }} me-2"></i>
+            {{ '編輯' if mode == 'edit' else '新增' }}分組
+        </h3>
+        <a href="{{ url_for('settings.index', tab='groups') }}" class="btn btn-outline-secondary btn-sm ms-auto">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {{ form.hidden_tag() }}
+
+                <div class="mb-3">
+                    {{ form.name.label(class='form-label') }}
+                    {{ form.name(class='form-control') }}
+                    {% for err in form.name.errors %}
+                        <div class="text-danger small">{{ err }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="mb-3">
+                    {{ form.description.label(class='form-label') }}
+                    {{ form.description(class='form-control') }}
+                    {% for err in form.description.errors %}
+                        <div class="text-danger small">{{ err }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">{{ form.members.label.text }}</label>
+                    <div class="member-list">
+                        {% if form.members.choices %}
+                            {{ form.members() }}
+                        {% else %}
+                            <div class="text-muted small">尚無使用者可指派</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="d-flex">
+                    <a href="{{ url_for('settings.index', tab='groups') }}" class="btn btn-outline-secondary">取消</a>
+                    {{ form.submit(class='btn btn-primary ms-auto') }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

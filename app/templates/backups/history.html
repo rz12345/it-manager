@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}{{ target.name }} — 備份歷史{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <h3 class="mb-0">
+        <i class="bi bi-{{ 'hdd-stack' if target_type == 'host' else 'router' }} me-2"></i>
+        {{ target.name }}
+        <small class="text-muted">備份歷史</small>
+    </h3>
+    <div class="ms-auto">
+        {% if target_type == 'host' %}
+            <a href="{{ url_for('hosts.detail', host_id=target.id) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> 回主機
+            </a>
+        {% else %}
+            <a href="{{ url_for('devices.detail', device_id=target.id) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> 回設備
+            </a>
+        {% endif %}
+        <a href="{{ url_for('tasks.index') }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-list-task"></i> 備份任務
+        </a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>開始時間</th>
+                    <th>結束時間</th>
+                    <th class="text-center">狀態</th>
+                    <th class="text-center">檔案數</th>
+                    <th class="text-center">觸發來源</th>
+                    <th>檔案</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in runs %}
+                <tr>
+                    <td class="small">{{ r.started_at|localtime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td class="small">{{ r.finished_at|localtime('%Y-%m-%d %H:%M:%S') if r.finished_at else '—' }}</td>
+                    <td class="text-center">
+                        {% if r.status == 'success' %}<span class="badge bg-success">成功</span>
+                        {% elif r.status == 'partial' %}<span class="badge bg-warning">部分</span>
+                        {% elif r.status == 'failed' %}<span class="badge bg-danger">失敗</span>
+                        {% elif r.status == 'running' %}<span class="badge bg-secondary">執行中</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center small">{{ r.file_count }}</td>
+                    <td class="text-center small">
+                        {% if r.triggered_by == 'manual' %}手動
+                        {% elif r.triggered_by == 'schedule' %}排程
+                        {% else %}{{ r.triggered_by }}{% endif %}
+                    </td>
+                    <td class="small">
+                        {% if r.records %}
+                            <details>
+                                <summary class="text-muted">{{ r.records|length }} 個檔案</summary>
+                                <ul class="list-unstyled mb-0 mt-1">
+                                    {% for rec in r.records %}
+                                    <li>
+                                        <a href="{{ url_for('backups.download_record', record_id=rec.id) }}"
+                                           class="text-decoration-none">
+                                            <i class="bi bi-file-earmark-arrow-down"></i>
+                                            <code>{{ rec.file_path }}</code>
+                                        </a>
+                                        {% if rec.status == 'failed' %}
+                                            <span class="badge bg-danger ms-1">失敗</span>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </details>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                        {% if r.error_message %}
+                            <div class="text-danger small mt-1">
+                                <i class="bi bi-exclamation-triangle"></i> {{ r.error_message }}
+                            </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">尚無備份紀錄。</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

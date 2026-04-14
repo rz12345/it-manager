@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}備份歷史 — Config Manager{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-clock-history me-2"></i>紀錄</h3>
+</div>
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link active" href="{{ url_for('backups.index') }}">
+            <i class="bi bi-archive me-1"></i>備份歷史
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{{ url_for('logs.user_activity') }}">
+            <i class="bi bi-person-lines-fill me-1"></i>使用者紀錄
+        </a>
+    </li>
+</ul>
+
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-auto"><label class="form-label mb-0 small">類型</label></div>
+            <div class="col-auto">
+                <select name="type" class="form-select form-select-sm">
+                    <option value="">全部</option>
+                    <option value="host" {% if filter_type=='host' %}selected{% endif %}>Linux 主機</option>
+                    <option value="device" {% if filter_type=='device' %}selected{% endif %}>網路設備</option>
+                </select>
+            </div>
+            <div class="col-auto"><label class="form-label mb-0 small">狀態</label></div>
+            <div class="col-auto">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">全部</option>
+                    <option value="success" {% if filter_status=='success' %}selected{% endif %}>成功</option>
+                    <option value="partial" {% if filter_status=='partial' %}selected{% endif %}>部分</option>
+                    <option value="failed" {% if filter_status=='failed' %}selected{% endif %}>失敗</option>
+                    <option value="running" {% if filter_status=='running' %}selected{% endif %}>執行中</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-sm btn-primary" type="submit">
+                    <i class="bi bi-funnel"></i> 篩選
+                </button>
+                <a href="{{ url_for('backups.index') }}" class="btn btn-sm btn-outline-secondary">清除</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>開始時間</th>
+                    <th>目標</th>
+                    <th class="text-center">類型</th>
+                    <th class="text-center">狀態</th>
+                    <th class="text-center">檔案數</th>
+                    <th class="text-center">觸發來源</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in pagination.items %}
+                <tr>
+                    <td class="small">{{ r.started_at|localtime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td class="fw-semibold">
+                        {% if r.target_type == 'host' and r.host %}
+                            <a href="{{ url_for('backups.host_history', host_id=r.host.id) }}"
+                               class="text-decoration-none">{{ r.host.name }}</a>
+                        {% elif r.target_type == 'device' and r.device %}
+                            <a href="{{ url_for('backups.device_history', device_id=r.device.id) }}"
+                               class="text-decoration-none">{{ r.device.name }}</a>
+                        {% else %}
+                            <span class="text-muted">（已刪除）</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ 'primary' if r.target_type == 'host' else 'info' }}">
+                            {{ '主機' if r.target_type == 'host' else '設備' }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        {% if r.status == 'success' %}<span class="badge bg-success">成功</span>
+                        {% elif r.status == 'partial' %}<span class="badge bg-warning">部分</span>
+                        {% elif r.status == 'failed' %}<span class="badge bg-danger">失敗</span>
+                        {% elif r.status == 'running' %}<span class="badge bg-secondary">執行中</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center small">{{ r.file_count }}</td>
+                    <td class="text-center small">
+                        {% if r.triggered_by == 'manual' %}<i class="bi bi-hand-index"></i> 手動
+                        {% elif r.triggered_by == 'schedule' %}<i class="bi bi-clock"></i> 排程
+                        {% else %}{{ r.triggered_by }}{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">尚無備份紀錄。</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if pagination.pages > 1 %}
+<nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% for p in pagination.iter_pages() %}
+            {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}&type={{ filter_type }}&status={{ filter_status }}">{{ p }}</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

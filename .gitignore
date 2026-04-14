@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# Environment
+.env
+
+# Database
+data/*.db
+data/*.db-journal
+
+# Runtime（日誌、排程鎖檔不進版控）
+data/*.log
+data/scheduler.lock
+
+# Backups（備份檔案不進版控）
+backups/hosts/*
+backups/devices/*
+!backups/hosts/.gitkeep
+!backups/devices/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Flask
+instance/

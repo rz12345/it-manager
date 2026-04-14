@@ -1,0 +1,15 @@
+# Config Manager — crontab 範例
+#
+# 部署方式：
+#   1. 將下列 <PROJECT_PATH> 替換為專案絕對路徑
+#   2. 將 <VENV_PY> 替換為虛擬環境 Python 絕對路徑（例如 /opt/config-manager/venv/bin/python）
+#   3. 套用至目前使用者的 cron：
+#         crontab cron/crontab.example
+#      或編輯 crontab：crontab -e
+#
+# 每分鐘檢查一次排程，由 runner.py 判斷哪些 Host/Device 的 next_run 已到
+# 並分派備份任務；失敗會透過 SMTP 寄發告警（須於 Web UI「系統設定」配置）。
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+* * * * * cd <PROJECT_PATH> && <VENV_PY> -m scheduler.runner >> <PROJECT_PATH>/data/scheduler.log 2>&1

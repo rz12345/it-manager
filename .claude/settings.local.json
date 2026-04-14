@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir Y:\\\\config-manager:*)",
+      "Bash(py -c ':*)",
+      "Bash(python:*)",
+      "Bash(py:*)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}

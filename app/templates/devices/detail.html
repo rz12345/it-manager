@@ -1,0 +1,332 @@
+{% extends 'base.html' %}
+{% block title %}{{ device.name }} — Config Manager{% endblock %}
+{% block content %}
+<div class="mx-auto" style="max-width: 960px;">
+    <div class="d-flex align-items-center mb-4">
+        <h3 class="mb-0">
+            <i class="bi bi-router me-2"></i>{{ device.name }}
+            <span class="badge bg-info align-middle">{{ device.vendor_label }}</span>
+            {% if not device.is_active %}
+                <span class="badge bg-secondary align-middle">停用</span>
+            {% endif %}
+        </h3>
+        <div class="ms-auto">
+            <a href="{{ url_for('assets.index', tab='devices') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> 返回列表
+            </a>
+            <button type="button" class="btn btn-outline-primary btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#compareModal">
+                <i class="bi bi-file-diff"></i> 比較版本
+            </button>
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-primary btn-sm">
+                <i class="bi bi-pencil"></i> 編輯
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white fw-semibold">
+                    <i class="bi bi-info-circle me-1"></i>基本資訊
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-4 text-muted">連線</dt>
+                        <dd class="col-8">{{ device.username }}@{{ device.ip_address }}:{{ device.port }}</dd>
+
+                        <dt class="col-4 text-muted">廠商</dt>
+                        <dd class="col-8">{{ device.vendor_label }} <code class="small ms-1">{{ device.vendor }}</code></dd>
+
+                        <dt class="col-4 text-muted">分組</dt>
+                        <dd class="col-8">
+                            {% if device.group %}<span class="badge bg-secondary">{{ device.group.name }}</span>
+                            {% else %}<span class="text-muted">未分組</span>{% endif %}
+                        </dd>
+
+                        <dt class="col-4 text-muted">備註</dt>
+                        <dd class="col-8">{{ device.description or '—' }}</dd>
+
+                        {% set lr = device.last_run_info %}
+                        <dt class="col-4 text-muted">最近備份</dt>
+                        <dd class="col-8">
+                            {% if lr %}
+                                {{ lr.started_at|localtime }}
+                                {% if lr.status == 'success' %}<span class="badge bg-success ms-1">成功</span>
+                                {% elif lr.status == 'partial' %}<span class="badge bg-warning ms-1">部分</span>
+                                {% elif lr.status == 'failed' %}<span class="badge bg-danger ms-1">失敗</span>
+                                {% endif %}
+                                <a href="{{ url_for('backups.device_history', device_id=device.id) }}" class="ms-2 small">歷史</a>
+                            {% else %}—{% endif %}
+                        </dd>
+
+                        <dt class="col-4 text-muted">建立於</dt>
+                        <dd class="col-8">{{ device.created_at|localtime }}</dd>
+                    </dl>
+
+                    {% if current_user.is_admin %}
+                    <hr>
+                    <button id="test-conn-btn" type="button" class="btn btn-outline-success btn-sm w-100">
+                        <i class="bi bi-plug"></i> 測試連線（Netmiko）
+                    </button>
+                    <div id="test-conn-result" class="small mt-2"></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white fw-semibold">
+                    <i class="bi bi-terminal me-1"></i>備份指令
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-3 small">
+                        <dt class="col-4 text-muted">廠商預設</dt>
+                        <dd class="col-8"><code>{{ vendor_default or '—' }}</code></dd>
+
+                        <dt class="col-4 text-muted">自訂指令</dt>
+                        <dd class="col-8">
+                            {% if device.backup_command %}
+                                <code>{{ device.backup_command }}</code>
+                            {% else %}<span class="text-muted">未設定</span>{% endif %}
+                        </dd>
+
+                        <dt class="col-4 text-muted">實際執行</dt>
+                        <dd class="col-8"><code class="text-primary">{{ device.effective_command }}</code></dd>
+                    </dl>
+                    <div class="text-muted small">
+                        <i class="bi bi-info-circle"></i>
+                        備份時會執行「實際執行」指令取得 running config，儲存為單一檔案。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-white d-flex align-items-center">
+            <span class="fw-semibold">
+                <i class="bi bi-calendar-check me-1"></i>每日最新備份檔
+            </span>
+            <span class="text-muted small ms-2">（近 {{ daily_latest|length }} 天）</span>
+            <a href="{{ url_for('backups.device_history', device_id=device.id) }}"
+               class="btn btn-outline-secondary btn-sm ms-auto">
+                <i class="bi bi-clock-history"></i> 完整歷史
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>日期</th>
+                        <th>備份時間</th>
+                        <th class="text-center">狀態</th>
+                        <th>檔案</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day, r in daily_latest %}
+                    <tr>
+                        <td class="small text-nowrap">{{ day.strftime('%Y-%m-%d') }}</td>
+                        <td class="small text-nowrap">{{ r.started_at|localtime('%H:%M:%S') }}</td>
+                        <td class="text-center">
+                            {% if r.status == 'success' %}<span class="badge bg-success">成功</span>
+                            {% elif r.status == 'partial' %}<span class="badge bg-warning">部分</span>
+                            {% endif %}
+                        </td>
+                        <td class="small">
+                            {% for rec in r.records %}
+                                <a href="{{ url_for('backups.download_record', record_id=rec.id) }}"
+                                   class="text-decoration-none me-2">
+                                    <i class="bi bi-file-earmark-arrow-down"></i>
+                                    <code>{{ rec.file_path }}</code>
+                                </a>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-center text-muted py-4">尚無成功備份。</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 差異比較：版本挑選 Modal -->
+<div class="modal fade" id="compareModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form method="get" action="{{ url_for('compare.view') }}" id="compare-modal-form">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-file-diff me-1"></i>比較版本
+                        <small class="text-muted ms-2">{{ device.name }} · running-config</small>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="compare-modal-loading" class="text-center text-muted py-4">
+                        <span class="spinner-border spinner-border-sm me-2"></span>載入版本清單中…
+                    </div>
+                    <div id="compare-modal-empty" class="text-center text-muted py-4 d-none">
+                        尚無可比較的歷史版本（至少需要 2 筆成功備份）。
+                    </div>
+                    <div id="compare-modal-table-wrap" class="d-none">
+                        <p class="small text-muted">選擇左右各一個版本後，點選「比較」。</p>
+                        <table class="table table-hover table-sm align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-center" style="width: 60px;">左</th>
+                                    <th class="text-center" style="width: 60px;">右</th>
+                                    <th>備份時間</th>
+                                    <th>Hash</th>
+                                    <th class="text-end">大小</th>
+                                    <th class="text-center" style="width: 110px;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="compare-modal-rows"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary" id="compare-modal-submit" disabled>
+                        <i class="bi bi-file-diff"></i> 比較
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    const modalEl = document.getElementById('compareModal');
+    if (!modalEl) return;
+    const form = document.getElementById('compare-modal-form');
+    const loadingEl = document.getElementById('compare-modal-loading');
+    const emptyEl = document.getElementById('compare-modal-empty');
+    const wrapEl = document.getElementById('compare-modal-table-wrap');
+    const rowsEl = document.getElementById('compare-modal-rows');
+    const submitBtn = document.getElementById('compare-modal-submit');
+    const versionsUrl = '{{ url_for("devices.versions", device_id=device.id) }}';
+    const viewUrlTpl = '{{ url_for("backups.view_record", record_id=0) }}';
+    const dlUrlTpl = '{{ url_for("backups.download_record", record_id=0) }}';
+
+    const fmtSize = (n) => {
+        if (n == null) return '';
+        if (n < 1024) return n + ' B';
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+        return (n / 1024 / 1024).toFixed(2) + ' MB';
+    };
+
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+
+    const updateSubmitState = () => {
+        const l = rowsEl.querySelector('input[name=left]:checked');
+        const r = rowsEl.querySelector('input[name=right]:checked');
+        submitBtn.disabled = !(l && r && l.value !== r.value);
+    };
+
+    modalEl.addEventListener('show.bs.modal', async () => {
+        loadingEl.classList.remove('d-none');
+        emptyEl.classList.add('d-none');
+        wrapEl.classList.add('d-none');
+        rowsEl.innerHTML = '';
+        submitBtn.disabled = true;
+
+        try {
+            const res = await fetch(versionsUrl, {headers: {'Accept': 'application/json'}});
+            const data = await res.json();
+            loadingEl.classList.add('d-none');
+            const items = (data && data.ok) ? (data.items || []) : [];
+            if (items.length < 2) {
+                emptyEl.classList.remove('d-none');
+                return;
+            }
+            rowsEl.innerHTML = items.map(it => {
+                const hash = it.checksum
+                    ? `<code class="text-muted" title="${escapeHtml(it.checksum)}" style="cursor: help;">${escapeHtml(it.checksum.slice(0, 10))}</code>`
+                    : '<span class="text-muted">—</span>';
+                const viewUrl = viewUrlTpl.replace(/\/0\/view$/, '/' + it.id + '/view');
+                const dlUrl = dlUrlTpl.replace(/\/0\/download$/, '/' + it.id + '/download');
+                return `
+                <tr>
+                    <td class="text-center"><input type="radio" name="left" value="${it.id}" class="form-check-input"></td>
+                    <td class="text-center"><input type="radio" name="right" value="${it.id}" class="form-check-input"></td>
+                    <td class="small text-nowrap">${escapeHtml(it.started_at)}</td>
+                    <td class="small">${hash}</td>
+                    <td class="text-end small text-muted">${fmtSize(it.size)}</td>
+                    <td class="text-center text-nowrap">
+                        <a href="${viewUrl}" target="_blank" rel="noopener"
+                           class="btn btn-sm btn-outline-secondary" title="在新分頁檢視">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="${dlUrl}" class="btn btn-sm btn-outline-secondary" title="下載">
+                            <i class="bi bi-download"></i>
+                        </a>
+                    </td>
+                </tr>`;
+            }).join('');
+            wrapEl.classList.remove('d-none');
+        } catch (e) {
+            loadingEl.classList.add('d-none');
+            emptyEl.classList.remove('d-none');
+            emptyEl.textContent = '載入失敗：' + e;
+        }
+    });
+
+    rowsEl.addEventListener('change', updateSubmitState);
+
+    form.addEventListener('submit', (e) => {
+        const l = rowsEl.querySelector('input[name=left]:checked');
+        const r = rowsEl.querySelector('input[name=right]:checked');
+        if (!l || !r || l.value === r.value) {
+            e.preventDefault();
+            if (window.CM && CM.showToast) CM.showToast('請選擇不同的左右版本', 'warning');
+        }
+    });
+})();
+</script>
+{% if current_user.is_admin %}
+<script>
+(function() {
+    const btn = document.getElementById('test-conn-btn');
+    const out = document.getElementById('test-conn-result');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>測試中…';
+        out.innerHTML = '';
+        try {
+            const res = await fetch('{{ url_for("devices.test_connection", device_id=device.id) }}', {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token() }}'},
+            });
+            const data = await res.json();
+            out.className = 'small mt-2 ' + (data.ok ? 'text-success' : 'text-danger');
+            out.innerHTML = (data.ok ? '<i class="bi bi-check-circle"></i> ' : '<i class="bi bi-x-circle"></i> ')
+                          + (data.message || '');
+        } catch (e) {
+            out.className = 'small mt-2 text-danger';
+            out.textContent = '請求失敗：' + e;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

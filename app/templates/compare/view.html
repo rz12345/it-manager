@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}差異比較 — {{ target.name }}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/css/diff2html.min.css">
+{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <h3 class="mb-0">
+        <i class="bi bi-file-diff me-2"></i>
+        {{ target.name }} <small class="text-muted">版本差異</small>
+    </h3>
+    <div class="ms-auto">
+        <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 回上一頁
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body py-2 small">
+                <span class="badge bg-secondary">左</span> {{ left_label }}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body py-2 small">
+                <span class="badge bg-primary">右</span> {{ right_label }}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if diff_text %}
+<div id="diff-container" class="card border-0 shadow-sm">
+    <div class="card-body p-2"></div>
+</div>
+<script id="diff-source" type="text/plain">{{ diff_text }}</script>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-check-circle"></i> 兩個版本內容完全相同。
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if diff_text %}
+<script src="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/js/diff2html-ui.min.js"></script>
+<script>
+(function() {
+    const diffText = document.getElementById('diff-source').textContent;
+    const container = document.querySelector('#diff-container .card-body');
+    const ui = new Diff2HtmlUI(container, diffText, {
+        drawFileList: false,
+        matching: 'lines',
+        outputFormat: 'side-by-side',
+        highlight: true,
+    });
+    ui.draw();
+})();
+</script>
+{% endif %}
+{% endblock %}

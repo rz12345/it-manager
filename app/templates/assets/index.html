@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% block title %}資產 — Config Manager{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-hdd-stack me-2"></i>資產</h3>
+    <div class="ms-auto">
+        {% if current_user.is_admin %}
+            {% if active_tab == 'hosts' %}
+                <a href="{{ url_for('hosts.create') }}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg"></i> 新增主機
+                </a>
+            {% elif active_tab == 'devices' %}
+                <a href="{{ url_for('devices.create') }}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg"></i> 新增設備
+                </a>
+            {% elif active_tab == 'templates' %}
+                <a href="{{ url_for('hosts.templates_create') }}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-lg"></i> 新增模板
+                </a>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'hosts' %}active{% endif %}"
+           href="{{ url_for('assets.index', tab='hosts') }}">
+            <i class="bi bi-hdd-stack me-1"></i>Linux 主機
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'devices' %}active{% endif %}"
+           href="{{ url_for('assets.index', tab='devices') }}">
+            <i class="bi bi-router me-1"></i>網路設備
+        </a>
+    </li>
+    {% if current_user.is_admin %}
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'templates' %}active{% endif %}"
+           href="{{ url_for('assets.index', tab='templates') }}">
+            <i class="bi bi-stack me-1"></i>主機類型模板
+        </a>
+    </li>
+    {% endif %}
+</ul>
+
+{% if active_tab == 'hosts' %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>名稱</th>
+                    <th>連線</th>
+                    <th>分組</th>
+                    <th class="text-center">狀態</th>
+                    <th>最近備份</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in hosts %}
+                <tr>
+                    <td class="fw-semibold">
+                        <a href="{{ url_for('hosts.detail', host_id=h.id) }}"
+                           class="text-decoration-none">{{ h.name }}</a>
+                        {% if h.description %}
+                            <div class="text-muted small">{{ h.description }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted small">
+                        {{ h.username }}@{{ h.ip_address }}:{{ h.port }}
+                    </td>
+                    <td>
+                        {% if h.group %}
+                            <span class="badge bg-secondary">{{ h.group.name }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if h.is_active %}
+                            <span class="badge bg-success">啟用</span>
+                        {% else %}
+                            <span class="badge bg-secondary">停用</span>
+                        {% endif %}
+                    </td>
+                    <td class="small">
+                        {% set lr = h.last_run_info %}
+                        {% if lr %}
+                            {{ lr.started_at|localtime }}
+                            {% if lr.status == 'success' %}<span class="badge bg-success ms-1">成功</span>
+                            {% elif lr.status == 'partial' %}<span class="badge bg-warning ms-1">部分</span>
+                            {% elif lr.status == 'failed' %}<span class="badge bg-danger ms-1">失敗</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">尚未備份</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('hosts.detail', host_id=h.id) }}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('hosts.edit', host_id=h.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form method="post"
+                              action="{{ url_for('hosts.delete', host_id=h.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('確定刪除主機「{{ h.name }}」？此動作會一併刪除備份紀錄。');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        尚無主機{% if current_user.is_admin %}，<a href="{{ url_for('hosts.create') }}">新增第一台主機</a>{% endif %}。
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% elif active_tab == 'devices' %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>名稱</th>
+                    <th>廠商</th>
+                    <th>連線</th>
+                    <th>分組</th>
+                    <th class="text-center">狀態</th>
+                    <th>最近備份</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in devices %}
+                <tr>
+                    <td class="fw-semibold">
+                        <a href="{{ url_for('devices.detail', device_id=d.id) }}"
+                           class="text-decoration-none">{{ d.name }}</a>
+                        {% if d.description %}
+                            <div class="text-muted small">{{ d.description }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="small">{{ d.vendor_label }}</td>
+                    <td class="text-muted small">{{ d.username }}@{{ d.ip_address }}:{{ d.port }}</td>
+                    <td>
+                        {% if d.group %}
+                            <span class="badge bg-secondary">{{ d.group.name }}</span>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if d.is_active %}
+                            <span class="badge bg-success">啟用</span>
+                        {% else %}
+                            <span class="badge bg-secondary">停用</span>
+                        {% endif %}
+                    </td>
+                    <td class="small">
+                        {% set lr = d.last_run_info %}
+                        {% if lr %}
+                            {{ lr.started_at|localtime }}
+                            {% if lr.status == 'success' %}<span class="badge bg-success ms-1">成功</span>
+                            {% elif lr.status == 'partial' %}<span class="badge bg-warning ms-1">部分</span>
+                            {% elif lr.status == 'failed' %}<span class="badge bg-danger ms-1">失敗</span>
+                            {% endif %}
+                        {% else %}<span class="text-muted">尚未備份</span>{% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('devices.detail', device_id=d.id) }}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('devices.edit', device_id=d.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form method="post"
+                              action="{{ url_for('devices.delete', device_id=d.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('確定刪除設備「{{ d.name }}」？此動作會一併刪除備份紀錄。');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        尚無設備{% if current_user.is_admin %}，<a href="{{ url_for('devices.create') }}">新增第一台設備</a>{% endif %}。
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% elif active_tab == 'templates' %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>名稱</th>
+                    <th>描述</th>
+                    <th class="text-center">預設路徑數</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in templates %}
+                <tr>
+                    <td class="fw-semibold">
+                        <a href="{{ url_for('hosts.templates_detail', template_id=t.id) }}"
+                           class="text-decoration-none">{{ t.name }}</a>
+                    </td>
+                    <td class="text-muted">{{ t.description or '—' }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-info">{{ t.template_paths|length }}</span>
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('hosts.templates_detail', template_id=t.id) }}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{{ url_for('hosts.templates_edit', template_id=t.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form method="post"
+                              action="{{ url_for('hosts.templates_delete', template_id=t.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('確定刪除模板「{{ t.name }}」？已套用至主機的路徑不會被移除。');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">
+                        尚無模板，<a href="{{ url_for('hosts.templates_create') }}">建立第一個模板</a>。
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

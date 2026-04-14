@@ -1,0 +1,198 @@
+{{ form.hidden_tag() }}
+
+<div class="row g-3">
+    <div class="col-md-8">
+        {{ form.name.label(class='form-label') }}
+        {{ form.name(class='form-control' + (' is-invalid' if form.name.errors else '')) }}
+        {% for e in form.name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+    </div>
+    <div class="col-md-4">
+        {{ form.retain_count.label(class='form-label') }}
+        {{ form.retain_count(class='form-control') }}
+        <div class="form-text">{{ form.retain_count.description }}</div>
+    </div>
+
+    <div class="col-12">
+        {{ form.description.label(class='form-label') }}
+        {{ form.description(class='form-control', rows=2) }}
+    </div>
+</div>
+
+{# ── 目標選擇 ── #}
+<div class="row g-3 mt-1">
+    <div class="col-md-6">
+        <label class="form-label">
+            <i class="bi bi-hdd-stack me-1"></i>Linux 主機
+            <small class="text-muted fw-normal">（可多選）</small>
+        </label>
+        <div class="border rounded p-2{% if form.host_ids.errors %} border-danger{% endif %}"
+             style="max-height:260px;overflow-y:auto">
+            {% if form.host_ids.choices %}
+                {% for val, label in form.host_ids.choices %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="host_ids"
+                           value="{{ val }}" id="host_{{ val }}"
+                           {% if val in (form.host_ids.data or []) %}checked{% endif %}>
+                    <label class="form-check-label" for="host_{{ val }}">{{ label }}</label>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted mb-0 small">尚無可選主機。</p>
+            {% endif %}
+        </div>
+        {% for e in form.host_ids.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">
+            <i class="bi bi-router me-1"></i>網路設備
+            <small class="text-muted fw-normal">（可多選）</small>
+        </label>
+        <div class="border rounded p-2" style="max-height:260px;overflow-y:auto">
+            {% if form.device_ids.choices %}
+                {% for val, label in form.device_ids.choices %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="device_ids"
+                           value="{{ val }}" id="dev_{{ val }}"
+                           {% if val in (form.device_ids.data or []) %}checked{% endif %}>
+                    <label class="form-check-label" for="dev_{{ val }}">{{ label }}</label>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted mb-0 small">尚無可選設備。</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# ── 排程設定 ── #}
+<div class="card mt-3">
+    <div class="card-header"><i class="bi bi-calendar3 me-2"></i>排程設定</div>
+    <div class="card-body">
+        <div class="mb-3">
+            <label class="form-label">排程模式</label>
+            <div class="d-flex gap-3 flex-wrap">
+                {% for subfield in form.schedule_mode %}
+                <div class="form-check">
+                    {{ subfield(class='form-check-input', id='smode_' + subfield.data) }}
+                    {{ subfield.label(class='form-check-label', for='smode_' + subfield.data) }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div id="basic-section" style="display:none">
+            <div class="mb-3">
+                <label class="form-label">頻率</label>
+                <div class="d-flex gap-3">
+                    {% for subfield in form.basic_frequency %}
+                    <div class="form-check">
+                        {{ subfield(class='form-check-input', id='bfreq_' + subfield.data) }}
+                        {{ subfield.label(class='form-check-label', for='bfreq_' + subfield.data) }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div id="basic-weekly-section" class="mb-3" style="display:none">
+                {{ form.basic_day.label(class='form-label') }}
+                {{ form.basic_day(class='form-select', style='max-width:160px') }}
+            </div>
+
+            <div id="basic-monthly-section" class="mb-3" style="display:none">
+                <div class="d-flex gap-3 align-items-end flex-wrap">
+                    <div>
+                        {{ form.basic_week.label(class='form-label') }}
+                        {{ form.basic_week(class='form-select', style='max-width:140px') }}
+                    </div>
+                    <div>
+                        <label class="form-label">星期</label>
+                        {{ form.basic_day(class='form-select', id='basic_day_monthly', style='max-width:140px') }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                {{ form.basic_time.label(class='form-label') }}
+                {{ form.basic_time(class='form-control' + (' is-invalid' if form.basic_time.errors else ''),
+                    style='max-width:140px', placeholder='08:30') }}
+                {% for e in form.basic_time.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+            </div>
+
+            <div class="text-primary small fw-semibold" id="basic-preview"></div>
+        </div>
+
+        <div id="advanced-section" style="display:none">
+            {{ form.cron_expr.label(class='form-label') }}
+            {{ form.cron_expr(class='form-control font-monospace' + (' is-invalid' if form.cron_expr.errors else ''),
+                placeholder='0 2 * * *') }}
+            {% for e in form.cron_expr.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+            <div class="form-text">
+                例：<code>0 2 * * *</code> 每日 02:00；
+                <code>0 */6 * * *</code> 每 6 小時；
+                <code>0 3 * * 0</code> 每週日 03:00
+            </div>
+        </div>
+
+        <div id="once-section" style="display:none">
+            {{ form.scheduled_at.label(class='form-label') }}
+            {{ form.scheduled_at(class='form-control' + (' is-invalid' if form.scheduled_at.errors else '')) }}
+            {% for e in form.scheduled_at.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+            <div class="form-text">請輸入系統本地時間</div>
+        </div>
+    </div>
+</div>
+
+<div class="form-check mt-3">
+    {{ form.is_active(class='form-check-input') }}
+    {{ form.is_active.label(class='form-check-label') }}
+</div>
+
+<script>
+(function () {
+  const DAY_NAMES = ['週日','週一','週二','週三','週四','週五','週六'];
+  const WEEK_NAMES = {'1':'第 1 週','2':'第 2 週','3':'第 3 週','4':'第 4 週','L':'最後一週'};
+  function getMode(){return document.querySelector('input[name="schedule_mode"]:checked')?.value;}
+  function getFreq(){return document.querySelector('input[name="basic_frequency"]:checked')?.value;}
+  function syncDaySelects(id){
+    const src = document.getElementById(id);
+    const dst = document.getElementById(id === 'basic_day' ? 'basic_day_monthly' : 'basic_day');
+    if (src && dst) dst.value = src.value;
+  }
+  function updateSections(){
+    const mode = getMode();
+    document.getElementById('basic-section').style.display    = mode === 'basic'    ? '' : 'none';
+    document.getElementById('advanced-section').style.display = mode === 'advanced' ? '' : 'none';
+    document.getElementById('once-section').style.display     = mode === 'once'     ? '' : 'none';
+    if (mode === 'basic') updateBasic();
+  }
+  function updateBasic(){
+    const freq = getFreq();
+    document.getElementById('basic-weekly-section').style.display  = freq === 'weekly'  ? '' : 'none';
+    document.getElementById('basic-monthly-section').style.display = freq === 'monthly' ? '' : 'none';
+    updatePreview();
+  }
+  function updatePreview(){
+    const freq = getFreq();
+    const time = document.querySelector('input[name="basic_time"]')?.value || '';
+    const day  = parseInt(document.getElementById('basic_day')?.value || '1', 10);
+    const week = document.querySelector('select[name="basic_week"]')?.value || '1';
+    let text = '';
+    if (time){
+      if (freq === 'daily') text = '每天 ' + time + ' 執行';
+      else if (freq === 'weekly') text = '每週' + DAY_NAMES[day] + ' ' + time + ' 執行';
+      else if (freq === 'monthly'){
+        const mDay = parseInt(document.getElementById('basic_day_monthly')?.value || day, 10);
+        text = '每月' + WEEK_NAMES[week] + DAY_NAMES[mDay] + ' ' + time + ' 執行';
+      }
+    }
+    document.getElementById('basic-preview').textContent = text;
+  }
+  document.querySelectorAll('input[name="schedule_mode"]').forEach(e => e.addEventListener('change', updateSections));
+  document.querySelectorAll('input[name="basic_frequency"]').forEach(e => e.addEventListener('change', updateBasic));
+  document.querySelector('input[name="basic_time"]')?.addEventListener('input', updatePreview);
+  document.getElementById('basic_day')?.addEventListener('change', () => { syncDaySelects('basic_day'); updatePreview(); });
+  document.getElementById('basic_day_monthly')?.addEventListener('change', () => { syncDaySelects('basic_day_monthly'); updatePreview(); });
+  document.querySelector('select[name="basic_week"]')?.addEventListener('change', updatePreview);
+  updateSections();
+})();
+</script>

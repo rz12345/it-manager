@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}{{ '編輯' if mode == 'edit' else '新增' }}主機 — Config Manager{% endblock %}
+{% block content %}
+<div class="mx-auto" style="max-width: 760px;">
+    <div class="d-flex align-items-center mb-4">
+        <h3 class="mb-0">
+            <i class="bi bi-{{ 'pencil-square' if mode == 'edit' else 'plus-square' }} me-2"></i>
+            {{ '編輯' if mode == 'edit' else '新增' }}主機
+        </h3>
+        <a href="{{ url_for('assets.index', tab='hosts') }}" class="btn btn-outline-secondary btn-sm ms-auto">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {{ form.hidden_tag() }}
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.name.label(class='form-label') }}
+                        {{ form.name(class='form-control') }}
+                        {% for err in form.name.errors %}
+                            <div class="text-danger small">{{ err }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.group_id.label(class='form-label') }}
+                        {{ form.group_id(class='form-select') }}
+                    </div>
+
+                    <div class="col-md-8">
+                        {{ form.ip_address.label(class='form-label') }}
+                        {{ form.ip_address(class='form-control', placeholder='192.168.1.10 或 myhost.example.com') }}
+                        {% for err in form.ip_address.errors %}
+                            <div class="text-danger small">{{ err }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.port.label(class='form-label') }}
+                        {{ form.port(class='form-control') }}
+                        {% for err in form.port.errors %}
+                            <div class="text-danger small">{{ err }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-md-6">
+                        {{ form.username.label(class='form-label') }}
+                        {{ form.username(class='form-control') }}
+                        {% for err in form.username.errors %}
+                            <div class="text-danger small">{{ err }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.password.label(class='form-label') }}
+                        {{ form.password(class='form-control', autocomplete='new-password',
+                                         placeholder='編輯時留白保留原密碼' if mode == 'edit' else '') }}
+                        {% if form.password.description %}
+                            <div class="form-text">{{ form.password.description }}</div>
+                        {% endif %}
+                        {% for err in form.password.errors %}
+                            <div class="text-danger small">{{ err }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="col-12">
+                        {{ form.description.label(class='form-label') }}
+                        {{ form.description(class='form-control') }}
+                    </div>
+
+                    <div class="col-md-8">
+                        {{ form.template_id.label(class='form-label') }}
+                        {{ form.template_id(class='form-select') }}
+                        <div class="form-text">{{ form.template_id.description }}</div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="form-check">
+                            {{ form.is_active(class='form-check-input') }}
+                            {{ form.is_active.label(class='form-check-label') }}
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+                <div class="d-flex">
+                    <a href="{{ url_for('assets.index', tab='hosts') }}" class="btn btn-outline-secondary">取消</a>
+                    {{ form.submit(class='btn btn-primary ms-auto') }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,436 @@
+{% extends 'base.html' %}
+{% block title %}系統設定 — Config Manager{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-gear me-2"></i>系統設定</h3>
+</div>
+
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'notify' %}active{% endif %}"
+           href="{{ url_for('settings.index', tab='notify') }}">
+            <i class="bi bi-envelope-at me-1"></i>通知
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'connection' %}active{% endif %}"
+           href="{{ url_for('settings.index', tab='connection') }}">
+            <i class="bi bi-stopwatch me-1"></i>連線
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'users' %}active{% endif %}"
+           href="{{ url_for('settings.index', tab='users') }}">
+            <i class="bi bi-person me-1"></i>帳號
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'groups' %}active{% endif %}"
+           href="{{ url_for('settings.index', tab='groups') }}">
+            <i class="bi bi-people me-1"></i>分組
+        </a>
+    </li>
+</ul>
+
+{# ══════════════════════════════════════════════ 通知 tab ══ #}
+{% if active_tab == 'notify' %}
+
+<form method="post" action="{{ url_for('settings.index') }}" id="notify-form" novalidate>
+    {{ notify_form.hidden_tag() }}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">
+            <i class="bi bi-envelope me-1"></i>SMTP 告警
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    {{ notify_form.SMTP_HOST.label(class='form-label') }}
+                    {{ notify_form.SMTP_HOST(class='form-control', placeholder='smtp.example.com') }}
+                </div>
+                <div class="col-md-4">
+                    {{ notify_form.SMTP_PORT.label(class='form-label') }}
+                    {{ notify_form.SMTP_PORT(class='form-control', placeholder='587') }}
+                </div>
+                <div class="col-md-6">
+                    {{ notify_form.SMTP_USER.label(class='form-label') }}
+                    {{ notify_form.SMTP_USER(class='form-control') }}
+                </div>
+                <div class="col-md-6">
+                    {{ notify_form.SMTP_PASS.label(class='form-label') }}
+                    {{ notify_form.SMTP_PASS(class='form-control', autocomplete='new-password',
+                                             placeholder='●●●●●●' if has_smtp_pass else '') }}
+                    {% if has_smtp_pass %}<div class="form-text">已設定，留白保留原密碼</div>{% endif %}
+                </div>
+                <div class="col-md-6">
+                    {{ notify_form.SMTP_FROM.label(class='form-label') }}
+                    {{ notify_form.SMTP_FROM(class='form-control', placeholder='noreply@example.com') }}
+                </div>
+                <div class="col-md-6">
+                    {{ notify_form.NOTIFY_EMAIL.label(class='form-label') }}
+                    {{ notify_form.NOTIFY_EMAIL(class='form-control', placeholder='admin@example.com') }}
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="d-flex align-items-center justify-content-between">
+    <form method="post" action="{{ url_for('settings.test_email') }}"
+          class="d-flex align-items-center gap-2 m-0"
+          onsubmit="return confirm('將以目前儲存的 SMTP 設定寄送測試信至「告警收件者 Email」，確定執行？');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-secondary">
+            <i class="bi bi-send-check me-1"></i>測試寄信
+        </button>
+        <span class="form-text m-0">寄至「告警收件者 Email」，以目前已儲存的 SMTP 設定</span>
+    </form>
+    <button type="submit" form="notify-form" class="btn btn-primary">
+        <i class="bi bi-check-lg me-1"></i>儲存設定
+    </button>
+</div>
+
+{# ══════════════════════════════════════════════ 連線 tab ══ #}
+{% elif active_tab == 'connection' %}
+
+<form method="post" action="{{ url_for('settings.save_timeout') }}" novalidate>
+    {{ timeout_form.hidden_tag() }}
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white fw-semibold">
+            <i class="bi bi-stopwatch me-1"></i>連線逾時
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    {{ timeout_form.SSH_TIMEOUT_SECONDS.label(class='form-label') }}
+                    {{ timeout_form.SSH_TIMEOUT_SECONDS(class='form-control') }}
+                    <div class="form-text">Paramiko SSH 連線 / 讀取逾時秒數（預設 30）</div>
+                </div>
+                <div class="col-md-6">
+                    {{ timeout_form.NETMIKO_TIMEOUT_SECONDS.label(class='form-label') }}
+                    {{ timeout_form.NETMIKO_TIMEOUT_SECONDS(class='form-control') }}
+                    <div class="form-text">Netmiko 網路設備 CLI 逾時秒數（預設 60）</div>
+                </div>
+                <div class="col-md-6">
+                    {{ timeout_form.SCHEDULER_MAX_WORKERS.label(class='form-label') }}
+                    {{ timeout_form.SCHEDULER_MAX_WORKERS(class='form-control') }}
+                    <div class="form-text">單一任務中同時併發備份的上限（預設 5，範圍 1–50）</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="d-flex justify-content-end">
+        {{ timeout_form.submit(class='btn btn-primary') }}
+    </div>
+</form>
+
+{# ══════════════════════════════════════════════ 帳號 tab ══ #}
+{% elif active_tab == 'users' %}
+
+<div class="row g-4 align-items-start">
+
+    {# 帳號列表 #}
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-semibold d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-people me-1"></i>帳號管理</span>
+                <button type="button" class="btn btn-sm btn-primary"
+                        data-bs-toggle="modal" data-bs-target="#modalAddUser">
+                    <i class="bi bi-person-plus me-1"></i>新增帳號
+                </button>
+            </div>
+            <div class="p-0">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th class="ps-3">帳號</th>
+                            <th>Email</th>
+                            <th>身份</th>
+                            <th>建立時間</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td class="ps-3 fw-medium">
+                                {{ u.username }}
+                                {% if u.id == current_user.id %}
+                                    <span class="badge bg-secondary ms-1 fw-normal">我</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">{{ u.email }}</td>
+                            <td>
+                                {% if u.is_admin %}
+                                    <span class="badge bg-primary fw-normal">管理者</span>
+                                {% else %}
+                                    <span class="badge bg-light text-muted fw-normal border">一般</span>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted text-nowrap">{{ u.created_at | localtime('%Y-%m-%d') }}</td>
+                            <td class="text-end pe-3">
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-1"
+                                        onclick="openEditUser({{ u.id }}, '{{ u.email }}', {{ u.is_admin | tojson }})"
+                                        title="編輯">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-1"
+                                        onclick="openResetPw({{ u.id }}, '{{ u.username }}')"
+                                        title="重設密碼">
+                                    <i class="bi bi-key"></i>
+                                </button>
+                                {% if u.id != current_user.id %}
+                                <form method="post" action="{{ url_for('settings.delete_user', user_id=u.id) }}"
+                                      id="delete-user-{{ u.id }}" style="display:inline"
+                                      onsubmit="return confirm('確定刪除帳號「{{ u.username }}」？此操作無法復原。');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="刪除">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# 密碼規則 #}
+    <div class="col-lg-4">
+        <form method="post" action="{{ url_for('settings.save_password_policy') }}" novalidate>
+            {{ pw_form.hidden_tag() }}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white fw-semibold">
+                    <i class="bi bi-shield-lock me-1"></i>密碼規則
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            {{ pw_form.PW_MIN_LENGTH.label(class='form-label') }}
+                            {{ pw_form.PW_MIN_LENGTH(class='form-control' + (' is-invalid' if pw_form.PW_MIN_LENGTH.errors else '')) }}
+                            {% for e in pw_form.PW_MIN_LENGTH.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                            <div class="form-text">最短字元數</div>
+                        </div>
+                        <div class="col-6">
+                            {{ pw_form.PW_EXPIRE_DAYS.label(class='form-label') }}
+                            {{ pw_form.PW_EXPIRE_DAYS(class='form-control') }}
+                            <div class="form-text">0 = 永不到期</div>
+                        </div>
+                        <div class="col-6">
+                            {{ pw_form.PW_MIN_UPPER.label(class='form-label') }}
+                            {{ pw_form.PW_MIN_UPPER(class='form-control') }}
+                            <div class="form-text">0 = 不限制</div>
+                        </div>
+                        <div class="col-6">
+                            {{ pw_form.PW_MIN_LOWER.label(class='form-label') }}
+                            {{ pw_form.PW_MIN_LOWER(class='form-control') }}
+                            <div class="form-text">0 = 不限制</div>
+                        </div>
+                        <div class="col-6">
+                            {{ pw_form.PW_MIN_DIGIT.label(class='form-label') }}
+                            {{ pw_form.PW_MIN_DIGIT(class='form-control') }}
+                            <div class="form-text">0 = 不限制</div>
+                        </div>
+                        <div class="col-6">
+                            {{ pw_form.PW_MIN_SPECIAL.label(class='form-label') }}
+                            {{ pw_form.PW_MIN_SPECIAL(class='form-control') }}
+                            <div class="form-text">0 = 不限制</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-0 pt-0 text-end">
+                    {{ pw_form.submit(class='btn btn-primary') }}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# ── Modal：新增帳號 ── #}
+<div class="modal fade" id="modalAddUser" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" action="{{ url_for('settings.add_user') }}" novalidate>
+                {{ user_create_form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>新增帳號</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        {{ user_create_form.username.label(class='form-label') }}
+                        {{ user_create_form.username(class='form-control') }}
+                    </div>
+                    <div class="mb-3">
+                        {{ user_create_form.email.label(class='form-label') }}
+                        {{ user_create_form.email(class='form-control') }}
+                    </div>
+                    <div class="mb-3">
+                        {{ user_create_form.password.label(class='form-label') }}
+                        {{ user_create_form.password(class='form-control', autocomplete='new-password') }}
+                    </div>
+                    <div class="form-check">
+                        {{ user_create_form.is_admin(class='form-check-input') }}
+                        {{ user_create_form.is_admin.label(class='form-check-label') }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                    {{ user_create_form.submit(class='btn btn-primary') }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ── Modal：編輯帳號 ── #}
+<div class="modal fade" id="modalEditUser" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" id="editUserForm" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>編輯帳號</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="edit_email" id="editEmail" class="form-control" required>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" name="edit_is_admin" id="editIsAdmin" class="form-check-input">
+                        <label class="form-check-label" for="editIsAdmin">管理者權限</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">儲存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ── Modal：重設密碼 ── #}
+<div class="modal fade" id="modalResetPw" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="post" id="resetPwForm" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-key me-2"></i>重設密碼</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">為帳號 <strong id="resetPwUsername"></strong> 設定新密碼</p>
+                    <div class="mb-0">
+                        <label class="form-label">新密碼</label>
+                        <input type="password" name="reset_new_password" class="form-control"
+                               autocomplete="new-password" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">重設密碼</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# ══════════════════════════════════════════════ 分組 tab ══ #}
+{% elif active_tab == 'groups' %}
+
+<div class="d-flex align-items-center mb-3">
+    <a href="{{ url_for('groups.create') }}" class="btn btn-primary btn-sm ms-auto">
+        <i class="bi bi-plus-lg me-1"></i>新增分組
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">名稱</th>
+                    <th>描述</th>
+                    <th class="text-center">成員</th>
+                    <th class="text-center">主機</th>
+                    <th class="text-center">設備</th>
+                    <th class="text-end pe-3">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in groups_rows %}
+                <tr>
+                    <td class="ps-3 fw-semibold">{{ r.group.name }}</td>
+                    <td class="text-muted">{{ r.group.description or '—' }}</td>
+                    <td class="text-center">
+                        <span class="badge bg-secondary">{{ r.user_count }}</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-info">{{ r.host_count }}</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-info">{{ r.device_count }}</span>
+                    </td>
+                    <td class="text-end pe-3">
+                        <a href="{{ url_for('groups.edit', group_id=r.group.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form method="post"
+                              action="{{ url_for('groups.delete', group_id=r.group.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('確定刪除分組「{{ r.group.name }}」？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        尚無分組，<a href="{{ url_for('groups.create') }}">建立第一個分組</a>。
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if active_tab == 'users' %}
+<script>
+var _editUserBase = "{{ url_for('settings.edit_user', user_id=0) }}".replace('/0/edit', '');
+var _resetPwBase  = "{{ url_for('settings.reset_user_password', user_id=0) }}".replace('/0/reset-password', '');
+
+function openEditUser(userId, email, isAdmin) {
+    var form = document.getElementById('editUserForm');
+    if (!form) return;
+    form.action = _editUserBase + '/' + userId + '/edit';
+    document.getElementById('editEmail').value = email;
+    document.getElementById('editIsAdmin').checked = isAdmin;
+    new bootstrap.Modal(document.getElementById('modalEditUser')).show();
+}
+
+function openResetPw(userId, username) {
+    var form = document.getElementById('resetPwForm');
+    if (!form) return;
+    form.action = _resetPwBase + '/' + userId + '/reset-password';
+    document.getElementById('resetPwUsername').textContent = username;
+    form.querySelector('input[name="reset_new_password"]').value = '';
+    new bootstrap.Modal(document.getElementById('modalResetPw')).show();
+}
+</script>
+{% endif %}
+{% endblock %}

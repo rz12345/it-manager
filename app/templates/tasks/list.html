@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}備份任務 — Config Manager{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-list-task me-2"></i>備份任務</h3>
+    <div class="ms-auto">
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('tasks.create') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg"></i> 新增任務
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>名稱</th>
+                    <th>目標</th>
+                    <th class="text-center">排程</th>
+                    <th>Cron / 時間</th>
+                    <th>下次執行</th>
+                    <th>最近狀態</th>
+                    <th class="text-center">狀態</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for t in tasks %}
+                <tr>
+                    <td class="fw-semibold">
+                        <a href="{{ url_for('tasks.detail', task_id=t.id) }}"
+                           class="text-decoration-none">{{ t.name }}</a>
+                        {% if t.description %}
+                            <div class="text-muted small">{{ t.description }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="small">
+                        {% set hc = t.host_ids|length %}
+                        {% set dc = t.device_ids|length %}
+                        {% if hc %}<span class="badge bg-info me-1"><i class="bi bi-hdd-stack"></i> 主機 {{ hc }}</span>{% endif %}
+                        {% if dc %}<span class="badge bg-info me-1"><i class="bi bi-router"></i> 設備 {{ dc }}</span>{% endif %}
+                    </td>
+                    <td class="text-center small">
+                        {% if t.schedule_mode == 'basic' %}<span class="badge bg-secondary">基本</span>
+                        {% elif t.schedule_mode == 'advanced' %}<span class="badge bg-secondary">進階</span>
+                        {% elif t.schedule_mode == 'once' %}<span class="badge bg-secondary">一次性</span>
+                        {% endif %}
+                    </td>
+                    <td class="small">
+                        {% if t.schedule_mode == 'once' %}
+                            {{ t.scheduled_at|localtime if t.scheduled_at else '—' }}
+                        {% else %}
+                            <code>{{ t.cron_expr or '—' }}</code>
+                        {% endif %}
+                    </td>
+                    <td class="small">{{ t.next_run|localtime if t.next_run else '—' }}</td>
+                    <td class="small">
+                        {% if t.last_run %}
+                            {{ t.last_run|localtime }}
+                            {% if t.last_status == 'success' %}<span class="badge bg-success ms-1">成功</span>
+                            {% elif t.last_status == 'partial' %}<span class="badge bg-warning ms-1">部分</span>
+                            {% elif t.last_status == 'failed' %}<span class="badge bg-danger ms-1">失敗</span>
+                            {% endif %}
+                        {% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if t.is_active %}<span class="badge bg-success">啟用</span>
+                        {% else %}<span class="badge bg-secondary">暫停</span>{% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('tasks.detail', task_id=t.id) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('tasks.edit', task_id=t.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form method="post" action="{{ url_for('tasks.delete', task_id=t.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('確定刪除任務「{{ t.name }}」？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-outline-danger" type="submit">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="8" class="text-center text-muted py-4">
+                    尚無備份任務{% if current_user.is_admin %}，<a href="{{ url_for('tasks.create') }}">建立第一個任務</a>{% endif %}。
+                </td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

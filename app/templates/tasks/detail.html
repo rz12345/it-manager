@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block title %}{{ task.name }} — 備份任務{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <h3 class="mb-0">
+        <i class="bi bi-list-task me-2"></i>{{ task.name }}
+        {% if task.is_active %}<span class="badge bg-success align-middle">啟用</span>
+        {% else %}<span class="badge bg-secondary align-middle">暫停</span>{% endif %}
+    </h3>
+    <div class="ms-auto">
+        <a href="{{ url_for('tasks.index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+        {% if current_user.is_admin %}
+        <form method="post" action="{{ url_for('tasks.toggle', task_id=task.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-{{ 'secondary' if task.is_active else 'success' }} btn-sm" type="submit">
+                <i class="bi bi-{{ 'pause' if task.is_active else 'play' }}"></i>
+                {{ '暫停' if task.is_active else '啟用' }}
+            </button>
+        </form>
+        <button id="run-now-btn" class="btn btn-success btn-sm" type="button">
+            <i class="bi bi-play-fill"></i> 立即執行
+        </button>
+        <a href="{{ url_for('tasks.edit', task_id=task.id) }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil"></i> 編輯
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div id="run-result"></div>
+
+<div class="row g-4">
+    <div class="col-md-5">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-info-circle me-1"></i>任務資訊</div>
+            <div class="card-body">
+                <dl class="row mb-0 small">
+                    <dt class="col-4 text-muted">備註</dt>
+                    <dd class="col-8">{{ task.description or '—' }}</dd>
+
+                    <dt class="col-4 text-muted">排程模式</dt>
+                    <dd class="col-8">
+                        {% if task.schedule_mode == 'basic' %}基本
+                        {% elif task.schedule_mode == 'advanced' %}進階 (Cron)
+                        {% elif task.schedule_mode == 'once' %}一次性
+                        {% endif %}
+                    </dd>
+
+                    {% if task.schedule_mode == 'once' %}
+                    <dt class="col-4 text-muted">執行時間</dt>
+                    <dd class="col-8">{{ task.scheduled_at|localtime if task.scheduled_at else '—' }}</dd>
+                    {% else %}
+                    <dt class="col-4 text-muted">Cron</dt>
+                    <dd class="col-8"><code>{{ task.cron_expr or '—' }}</code></dd>
+                    {% endif %}
+
+                    <dt class="col-4 text-muted">下次執行</dt>
+                    <dd class="col-8">{{ task.next_run|localtime if task.next_run else '—' }}</dd>
+
+                    <dt class="col-4 text-muted">保留版本</dt>
+                    <dd class="col-8">{{ task.retain_count }}</dd>
+
+                    <dt class="col-4 text-muted">最近執行</dt>
+                    <dd class="col-8">
+                        {{ task.last_run|localtime if task.last_run else '—' }}
+                        {% if task.last_status == 'success' %}<span class="badge bg-success ms-1">成功</span>
+                        {% elif task.last_status == 'partial' %}<span class="badge bg-warning ms-1">部分</span>
+                        {% elif task.last_status == 'failed' %}<span class="badge bg-danger ms-1">失敗</span>
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-semibold">
+                <i class="bi bi-bullseye me-1"></i>備份目標
+                <span class="badge bg-secondary ms-1">{{ task.targets|length }}</span>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush small">
+                {% for t in task.targets %}
+                    <li class="list-group-item d-flex align-items-center">
+                        <i class="bi bi-{{ 'hdd-stack' if t.target_type == 'host' else 'router' }} me-2"></i>
+                        {% if t.target %}
+                            <a href="{{ url_for('hosts.detail', host_id=t.host_id) if t.target_type == 'host' else url_for('devices.detail', device_id=t.device_id) }}"
+                               class="text-decoration-none">{{ t.target_name }}</a>
+                            <span class="text-muted ms-2">{{ t.target.ip_address }}</span>
+                        {% else %}
+                            <span class="text-muted">{{ t.target_name }}</span>
+                        {% endif %}
+                        <span class="ms-auto badge bg-{{ 'info' if t.target_type == 'host' else 'warning' }}">
+                            {{ '主機' if t.target_type == 'host' else '設備' }}
+                        </span>
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-muted text-center py-3">無目標</li>
+                {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{{ url_for('backups.index', task_id=task.id) }}" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-clock-history me-1"></i>查看紀錄
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if current_user.is_admin %}
+<script>
+(function(){
+    const btn = document.getElementById('run-now-btn');
+    const out = document.getElementById('run-result');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+        if (!confirm('立即為此任務的所有目標執行一次備份？')) return;
+        btn.disabled = true;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>執行中…';
+        out.innerHTML = '<div class="alert alert-info py-2">備份執行中，請稍候…</div>';
+        try {
+            const res = await fetch('{{ url_for("tasks.run_now", task_id=task.id) }}', {
+                method: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token() }}'},
+            });
+            const data = await res.json();
+            out.innerHTML = '<div class="alert alert-' + (data.ok ? 'success' : 'warning') + ' py-2">' +
+                            (data.message || '') + '</div>';
+            setTimeout(() => location.reload(), 1500);
+        } catch(e) {
+            out.innerHTML = '<div class="alert alert-danger py-2">請求失敗：' + e + '</div>';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}
