@@ -1,3 +1,4 @@
+import os
 import socket
 
 from datetime import timezone
@@ -156,6 +157,8 @@ def versions(device_id):
 
     items = []
     for rec in records:
+        if not rec.storage_path or not os.path.exists(rec.storage_path):
+            continue
         started = rec.run.started_at
         if started.tzinfo is None:
             started = started.replace(tzinfo=timezone.utc)

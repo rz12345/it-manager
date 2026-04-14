@@ -221,17 +221,6 @@
     const viewUrlTpl = '{{ url_for("backups.view_record", record_id=0) }}';
     const dlUrlTpl = '{{ url_for("backups.download_record", record_id=0) }}';
 
-    const fmtSize = (n) => {
-        if (n == null) return '';
-        if (n < 1024) return n + ' B';
-        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
-        return (n / 1024 / 1024).toFixed(2) + ' MB';
-    };
-
-    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
-
     const updateSubmitState = () => {
         const l = rowsEl.querySelector('input[name=left]:checked');
         const r = rowsEl.querySelector('input[name=right]:checked');
@@ -254,30 +243,7 @@
                 emptyEl.classList.remove('d-none');
                 return;
             }
-            rowsEl.innerHTML = items.map(it => {
-                const hash = it.checksum
-                    ? `<code class="text-muted" title="${escapeHtml(it.checksum)}" style="cursor: help;">${escapeHtml(it.checksum.slice(0, 10))}</code>`
-                    : '<span class="text-muted">—</span>';
-                const viewUrl = viewUrlTpl.replace(/\/0\/view$/, '/' + it.id + '/view');
-                const dlUrl = dlUrlTpl.replace(/\/0\/download$/, '/' + it.id + '/download');
-                return `
-                <tr>
-                    <td class="text-center"><input type="radio" name="left" value="${it.id}" class="form-check-input"></td>
-                    <td class="text-center"><input type="radio" name="right" value="${it.id}" class="form-check-input"></td>
-                    <td class="small text-nowrap">${escapeHtml(it.started_at)}</td>
-                    <td class="small">${hash}</td>
-                    <td class="text-end small text-muted">${fmtSize(it.size)}</td>
-                    <td class="text-center text-nowrap">
-                        <a href="${viewUrl}" target="_blank" rel="noopener"
-                           class="btn btn-sm btn-outline-secondary" title="在新分頁檢視">
-                            <i class="bi bi-eye"></i>
-                        </a>
-                        <a href="${dlUrl}" class="btn btn-sm btn-outline-secondary" title="下載">
-                            <i class="bi bi-download"></i>
-                        </a>
-                    </td>
-                </tr>`;
-            }).join('');
+            rowsEl.innerHTML = CM.renderVersionRows(items, viewUrlTpl, dlUrlTpl);
             wrapEl.classList.remove('d-none');
         } catch (e) {
             loadingEl.classList.add('d-none');
@@ -287,6 +253,7 @@
     });
 
     rowsEl.addEventListener('change', updateSubmitState);
+    CM.bindVersionCollapseToggles(rowsEl);
 
     form.addEventListener('submit', (e) => {
         const l = rowsEl.querySelector('input[name=left]:checked');

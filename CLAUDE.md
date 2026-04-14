@@ -49,9 +49,10 @@ flask auth create-user --admin
 # 建立預設主機類型模板（Web Server / DB Server / General）
 flask hosts seed-templates
 
-# 清除所有備份紀錄與檔案（保留 Task/Host/Device/使用者設定）
-flask backups purge-all           # 互動確認
-flask backups purge-all --yes     # 免確認
+# 清理備份資料（必須指定 --mode，避免誤刪）
+flask backups clean --mode orphans --dry-run   # 列出實體檔案遺失的 DB 孤兒列
+flask backups clean --mode orphans --yes       # 刪除孤兒列（連同整筆都孤兒的 Run）
+flask backups clean --mode all                 # 核彈級：刪除所有 Run/Record 與 backups/ 檔案
 
 # 手動觸發排程（測試用）
 python -m scheduler.runner

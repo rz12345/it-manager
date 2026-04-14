@@ -24,6 +24,8 @@ def _group_records_by_file(runs):
         for rec in run.records:
             if rec.status != 'success':
                 continue
+            if not rec.storage_path or not os.path.exists(rec.storage_path):
+                continue
             groups.setdefault(rec.file_path, []).append((rec, run))
     comparable = OrderedDict()
     for fp in sorted(groups.keys()):

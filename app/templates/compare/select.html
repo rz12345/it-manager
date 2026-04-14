@@ -48,7 +48,7 @@
                 {% for fp, recs in groups.items() %}
                 <tbody class="file-group" data-file="{{ fp }}"{% if not loop.first %} style="display: none;"{% endif %}>
                     {% for rec, run in recs %}
-                    <tr>
+                    <tr data-checksum="{{ rec.checksum or '' }}">
                         <td class="text-center">
                             <input type="radio" name="left" value="{{ rec.id }}" class="form-check-input">
                         </td>
@@ -107,6 +107,12 @@
     const clearSelection = () => {
         form.querySelectorAll('input[type=radio]:checked').forEach(i => { i.checked = false; });
     };
+
+    // 對每個檔案群組套用「連續相同 hash 折疊」
+    groups.forEach((g) => {
+        CM.autoCollapseRows(g, {colspan: 8});
+        CM.bindVersionCollapseToggles(g);
+    });
 
     if (sel) {
         sel.addEventListener('change', () => {
