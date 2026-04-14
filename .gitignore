@@ -30,6 +30,9 @@ backups/devices/*
 .idea/
 *.swp
 
+# Claude Code 本機設定
+.claude/settings.local.json
+
 # Logs
 *.log
 
