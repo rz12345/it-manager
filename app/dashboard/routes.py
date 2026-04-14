@@ -1,3 +1,4 @@
+import os
 import shutil
 from datetime import datetime, timedelta, timezone
 
@@ -21,9 +22,20 @@ def _storage_stats():
     except (OSError, FileNotFoundError):
         return None
 
-    backup_bytes = db.session.query(
+    config_bytes = db.session.query(
         db.func.coalesce(db.func.sum(BackupRecord.file_size), 0)
     ).scalar() or 0
+
+    db_bytes = 0
+    db_uri = current_app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    if db_uri.startswith('sqlite:///'):
+        db_path = db_uri.replace('sqlite:///', '', 1)
+        if not os.path.isabs(db_path):
+            db_path = os.path.join(current_app.root_path, '..', db_path)
+        try:
+            db_bytes = os.path.getsize(db_path)
+        except OSError:
+            db_bytes = 0
 
     used_pct = (usage.used / usage.total * 100) if usage.total else 0
     if used_pct >= 90:
@@ -38,7 +50,8 @@ def _storage_stats():
         'used': usage.used,
         'free': usage.free,
         'used_pct': round(used_pct, 1),
-        'backup_bytes': int(backup_bytes),
+        'config_bytes': int(config_bytes),
+        'db_bytes': int(db_bytes),
         'bar_class': bar_class,
         'path': backup_base,
     }

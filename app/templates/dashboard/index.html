@@ -55,7 +55,7 @@
             <span class="ms-auto small">
                 <span class="fw-semibold">已用 {{ storage.used|filesizeformat(true) }}</span>
                 <span class="text-muted">/ {{ storage.total|filesizeformat(true) }}</span>
-                <span class="text-muted ms-2">（備份佔 {{ storage.backup_bytes|filesizeformat(true) }}）</span>
+                <span class="text-muted ms-2">（組態檔 {{ storage.config_bytes|filesizeformat(true) }}，資料庫 {{ storage.db_bytes|filesizeformat(true) }}）</span>
             </span>
         </div>
         <div class="progress" style="height: 10px;">
