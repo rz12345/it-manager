@@ -1,4 +1,4 @@
-/* IT Manager — 共用 JS（Toast / Confirm Modal / AJAX helpers） */
+/* IT Manager — 共用 JS（Theme / Toast / Confirm Modal / Quick Nav / AJAX helpers） */
 (function () {
     'use strict';
 
@@ -6,6 +6,56 @@
         const m = document.querySelector('meta[name="csrf-token"]');
         return m ? m.getAttribute('content') : '';
     };
+
+    // ── Theme manager ─────────────────────────────────────
+    const THEME_KEY = 'cm-theme';
+    const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+    function applyTheme(pref) {
+        const effective = (pref === 'auto')
+            ? (mq && mq.matches ? 'dark' : 'light')
+            : pref;
+        document.documentElement.setAttribute('data-bs-theme', effective);
+        document.documentElement.setAttribute('data-cm-theme-pref', pref);
+        updateThemeIcon(pref);
+        document.dispatchEvent(new CustomEvent('cm:theme-change', {
+            detail: {pref, effective}
+        }));
+    }
+
+    function updateThemeIcon(pref) {
+        const icon = document.getElementById('cm-theme-icon');
+        if (!icon) return;
+        const cls = pref === 'dark'  ? 'bi-moon-stars-fill'
+                  : pref === 'light' ? 'bi-sun-fill'
+                                     : 'bi-circle-half';
+        icon.className = 'bi ' + cls;
+    }
+
+    function getThemePref() {
+        return localStorage.getItem(THEME_KEY) || 'auto';
+    }
+
+    function setThemePref(pref) {
+        if (pref === 'auto') localStorage.removeItem(THEME_KEY);
+        else localStorage.setItem(THEME_KEY, pref);
+        applyTheme(pref);
+    }
+
+    function initTheme() {
+        const pref = getThemePref();
+        applyTheme(pref);
+        document.querySelectorAll('[data-cm-theme]').forEach((btn) => {
+            btn.addEventListener('click', () => setThemePref(btn.dataset.cmTheme));
+        });
+        if (mq) {
+            const onChange = () => {
+                if (getThemePref() === 'auto') applyTheme('auto');
+            };
+            if (mq.addEventListener) mq.addEventListener('change', onChange);
+            else if (mq.addListener) mq.addListener(onChange);
+        }
+    }
 
     // ── Toast 系統 ──
     function showToast(message, level = 'info', delay = 3500) {
@@ -103,6 +153,90 @@
         }
     }, true);
 
+    // ── Submit button loading spinner ──
+    // Any <button data-loading-text="..."> inside a form switches to a spinner on submit.
+    document.addEventListener('submit', (e) => {
+        const form = e.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        form.querySelectorAll('button[type="submit"][data-loading-text], button[data-loading-text]:not([type])').forEach((btn) => {
+            if (btn.classList.contains('is-loading')) return;
+            const original = btn.innerHTML;
+            btn.dataset.originalContent = original;
+            btn.classList.add('is-loading');
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>${btn.dataset.loadingText || '處理中…'}`;
+            btn.disabled = true;
+        });
+    });
+
+    // ── Quick Nav (Ctrl+K / ⌘K) ──
+    function initQuickNav() {
+        const dataEl = document.getElementById('cm-quicknav-data');
+        const modalEl = document.getElementById('cm-quicknav-modal');
+        if (!dataEl || !modalEl) return;
+        let items;
+        try { items = JSON.parse(dataEl.textContent); }
+        catch (e) { items = {}; }
+        const entries = Object.entries(items).map(([name, url]) => ({name, url}));
+        const input = document.getElementById('cm-quicknav-input');
+        const list = document.getElementById('cm-quicknav-list');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        let active = 0;
+
+        function render(q) {
+            const needle = (q || '').trim().toLowerCase();
+            const filtered = needle
+                ? entries.filter((e) => e.name.toLowerCase().includes(needle))
+                : entries;
+            if (!filtered.length) {
+                list.innerHTML = '<li class="cm-empty-hint">找不到符合的頁面</li>';
+                active = -1;
+                return;
+            }
+            list.innerHTML = filtered.map((e, i) =>
+                `<li data-url="${e.url}" class="${i === 0 ? 'is-active' : ''}"><i class="bi bi-arrow-right-short"></i>${e.name}</li>`
+            ).join('');
+            active = 0;
+        }
+
+        function go(i) {
+            const lis = list.querySelectorAll('li[data-url]');
+            if (!lis.length) return;
+            active = (i + lis.length) % lis.length;
+            lis.forEach((li, idx) => li.classList.toggle('is-active', idx === active));
+            lis[active].scrollIntoView({block: 'nearest'});
+        }
+
+        function commit() {
+            const el = list.querySelector('li.is-active[data-url]');
+            if (el) window.location.href = el.dataset.url;
+        }
+
+        input.addEventListener('input', () => render(input.value));
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); go(active + 1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); go(active - 1); }
+            else if (e.key === 'Enter') { e.preventDefault(); commit(); }
+        });
+        list.addEventListener('click', (e) => {
+            const li = e.target.closest('li[data-url]');
+            if (li) window.location.href = li.dataset.url;
+        });
+        modalEl.addEventListener('shown.bs.modal', () => {
+            input.value = '';
+            render('');
+            input.focus();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                modal.show();
+            }
+        });
+        const btn = document.getElementById('cm-quicknav-btn');
+        if (btn) btn.addEventListener('click', () => modal.show());
+    }
+
     // ── 格式工具 ──
     const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -116,8 +250,6 @@
     };
 
     // ── 差異比較版本清單：連續相同 hash 的中間版本折疊 ──
-    // items 已依時間新到舊排序；相鄰 checksum 相同者視為同群組。
-    // 群組 size>=3：顯示首尾 + 中間折疊列；size==2：全顯示；size==1：單列。
     function renderVersionRows(items, viewUrlTpl, dlUrlTpl) {
         if (!items || !items.length) return '';
 
@@ -184,9 +316,6 @@
         }).join('');
     }
 
-    // 掃描 container 內 tr[data-checksum]，將連續相同 checksum 的群組折疊
-    // （群組 size>=3：首尾保留、中間折疊；size<=2：保留全部）。
-    // 用於 Server-rendered 比較版本表格。
     function autoCollapseRows(containerEl, {colspan = 6} = {}) {
         const trs = Array.from(
             containerEl.querySelectorAll('tr[data-checksum]'));
@@ -225,7 +354,6 @@
         }
     }
 
-    // 綁定折疊切換（事件委派在 tbody / table 上）
     function bindVersionCollapseToggles(rootEl) {
         rootEl.addEventListener('click', (e) => {
             const tr = e.target.closest('.version-collapse-toggle');
@@ -242,8 +370,6 @@
     }
 
     // ── 表格即時過濾 ──
-    // 依 input 關鍵字過濾指定 table tbody 的 tr（比對 tr textContent，不分大小寫）
-    // 若全部隱藏則顯示空狀態列（emptyText）
     function initTableFilter(input, table, {emptyText = '查無符合項目'} = {}) {
         if (!input || !table) return;
         const tbody = table.tBodies[0];
@@ -276,6 +402,17 @@
         input.addEventListener('input', filter);
     }
 
+    // ── Init all ──
+    document.addEventListener('DOMContentLoaded', () => {
+        initTheme();
+        initQuickNav();
+    });
+
+    // legacy shim: showConfirmModal(title, body, okCallback) — used in task-manager inherited templates
+    window.showConfirmModal = function (title, body, okCallback) {
+        confirmModal({title, body}).then((ok) => { if (ok && typeof okCallback === 'function') okCallback(); });
+    };
+
     // expose
     window.CM = {
         showToast,
@@ -288,5 +425,6 @@
         bindVersionCollapseToggles,
         autoCollapseRows,
         initTableFilter,
+        setThemePref,
     };
 })();

@@ -1,0 +1,139 @@
+{# IT Manager — Shared Jinja macros
+   Import via: {% from '_macros.html' import page_header, stat_card, ... %}
+#}
+
+{# ── Page header: icon + title + action buttons on the right ────────── #}
+{% macro page_header(title, icon='', subtitle='') %}
+<div class="cm-page-header">
+    <h3>
+        {% if icon %}<i class="bi bi-{{ icon }} me-2"></i>{% endif %}{{ title }}
+        {% if subtitle %}<span class="text-muted small ms-2">{{ subtitle }}</span>{% endif %}
+    </h3>
+    {% if caller %}
+    <div class="cm-actions">{{ caller() }}</div>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{# ── Breadcrumb: items is list of (label, url) tuples; last item plain ── #}
+{% macro breadcrumb(items) %}
+<nav class="cm-breadcrumb" aria-label="麵包屑">
+    {% for label, url in items %}
+        {% if url and not loop.last %}
+            <a href="{{ url }}">{{ label }}</a>
+            <span class="sep">/</span>
+        {% else %}
+            <span>{{ label }}</span>
+        {% endif %}
+    {% endfor %}
+</nav>
+{% endmacro %}
+
+{# ── Stat card: unified style across dashboard + list pages ─────────── #}
+{% macro stat_card(label, value, icon='', variant='', href='', suffix='') %}
+<div class="cm-stat-card {% if variant %}variant-{{ variant }}{% endif %}">
+    <div class="cm-stat-label">
+        {% if icon %}<i class="bi bi-{{ icon }}"></i>{% endif %}{{ label }}
+    </div>
+    <div class="cm-stat-value">{{ value }}{% if suffix %} <span class="text-muted">{{ suffix }}</span>{% endif %}</div>
+    {% if href %}<a href="{{ href }}" class="stretched-link" aria-label="{{ label }}"></a>{% endif %}
+</div>
+{% endmacro %}
+
+{# ── Status badge (run status: success / partial / failed / running) ── #}
+{% macro status_badge(status) %}
+    {% if status == 'success' %}<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>成功</span>
+    {% elif status == 'partial' %}<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-circle me-1"></i>部分</span>
+    {% elif status == 'failed' %}<span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>失敗</span>
+    {% elif status == 'running' %}<span class="badge bg-secondary"><span class="cm-status-dot running"></span>執行中</span>
+    {% elif status %}<span class="badge bg-light text-dark">{{ status }}</span>
+    {% endif %}
+{% endmacro %}
+
+{# ── Active / paused badge ─────────────────────────────────────────── #}
+{% macro active_badge(is_active) %}
+    {% if is_active %}<span class="badge bg-success">啟用</span>
+    {% else %}<span class="badge bg-secondary">暫停</span>{% endif %}
+{% endmacro %}
+
+{# ── Empty state: used as tbody row (rowspan) or standalone block ──── #}
+{% macro empty_row(colspan, message, icon='inbox', cta_url='', cta_text='') %}
+<tr><td colspan="{{ colspan }}">
+    <div class="cm-empty">
+        <div class="cm-empty-icon"><i class="bi bi-{{ icon }}"></i></div>
+        <div class="cm-empty-msg">{{ message }}</div>
+        {% if cta_url %}<a href="{{ cta_url }}" class="btn btn-sm btn-primary">{{ cta_text or '新增' }}</a>{% endif %}
+    </div>
+</td></tr>
+{% endmacro %}
+
+{% macro empty_block(message, icon='inbox', cta_url='', cta_text='') %}
+<div class="cm-empty">
+    <div class="cm-empty-icon"><i class="bi bi-{{ icon }}"></i></div>
+    <div class="cm-empty-msg">{{ message }}</div>
+    {% if cta_url %}<a href="{{ cta_url }}" class="btn btn-sm btn-primary">{{ cta_text or '新增' }}</a>{% endif %}
+</div>
+{% endmacro %}
+
+{# ── Delete form with confirm modal (unified) ──────────────────────── #}
+{% macro confirm_delete_form(action, message, btn_class='btn btn-sm btn-outline-danger', icon='trash', label='', csrf_token=None) %}
+<form method="post" action="{{ action }}" class="d-inline" data-confirm="{{ message }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="{{ btn_class }}" type="submit" {% if not label %}title="{{ message }}" aria-label="{{ message }}"{% endif %}>
+        {% if icon %}<i class="bi bi-{{ icon }}"></i>{% endif %}{% if label %} {{ label }}{% endif %}
+    </button>
+</form>
+{% endmacro %}
+
+{# ── Responsive table wrapper ─────────────────────────────────────── #}
+{% macro responsive_table_start() %}
+<div class="card border-0 shadow-sm cm-table-responsive">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle cm-stacked">
+{% endmacro %}
+
+{% macro responsive_table_end() %}
+        </table>
+    </div>
+</div>
+{% endmacro %}
+
+{# ── Form field (WTForms) ─────────────────────────────────────────── #}
+{% macro form_field(field, col='12', placeholder='', help='', input_class='') %}
+<div class="col-md-{{ col }}">
+    {{ field.label(class='form-label') }}
+    {% set widget = field.widget.__class__.__name__ %}
+    {% if widget == 'Select' %}
+        {{ field(class='form-select ' + input_class) }}
+    {% elif widget == 'CheckboxInput' %}
+        <div class="form-check">
+            {{ field(class='form-check-input ' + input_class) }}
+            {{ field.label(class='form-check-label') }}
+        </div>
+    {% elif widget == 'TextArea' %}
+        {{ field(class='form-control ' + input_class, placeholder=placeholder) }}
+    {% else %}
+        {{ field(class='form-control ' + input_class, placeholder=placeholder) }}
+    {% endif %}
+    {% for err in field.errors %}
+        <div class="text-danger small">{{ err }}</div>
+    {% endfor %}
+    {% if help %}<div class="form-text">{{ help }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{# ── Submit button with loading spinner ───────────────────────────── #}
+{% macro submit_button(label='儲存', icon='check-lg', loading='處理中…', btn_class='btn btn-primary') %}
+<button type="submit" class="{{ btn_class }}" data-loading-text="{{ loading }}">
+    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+    {% if icon %}<i class="bi bi-{{ icon }} me-1"></i>{% endif %}{{ label }}
+</button>
+{% endmacro %}
+
+{# ── Search filter input (use with initTableFilter) ───────────────── #}
+{% macro search_input(id='', placeholder='搜尋…', extra_class='') %}
+<div class="input-group input-group-sm cm-search {{ extra_class }}">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="search" id="{{ id }}" class="form-control" placeholder="{{ placeholder }}" aria-label="{{ placeholder }}">
+</div>
+{% endmacro %}

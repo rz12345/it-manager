@@ -1,0 +1,285 @@
+/* IT Manager — Component styles (macro-backed)
+ * Shared visual language for cards, tables, forms, quick nav, responsive behaviour.
+ */
+
+/* ── Surfaces ─────────────────────────────────────────── */
+body {
+    background-color: var(--cm-surface-muted);
+    color: var(--cm-text);
+}
+.card {
+    background-color: var(--cm-surface);
+    border-color: var(--cm-border);
+    border-radius: var(--cm-radius);
+}
+.card-header.bg-white {
+    background-color: var(--cm-surface) !important;
+    border-bottom-color: var(--cm-border);
+}
+.table {
+    --bs-table-bg: var(--cm-surface);
+    --bs-table-color: var(--cm-text);
+    --bs-table-border-color: var(--cm-border);
+}
+.table-light,
+.table > thead.table-light {
+    --bs-table-bg: var(--cm-surface-muted);
+    --bs-table-color: var(--cm-text);
+}
+.list-group-item {
+    background-color: var(--cm-surface);
+    border-color: var(--cm-border);
+    color: var(--cm-text);
+}
+
+/* ── Navbar (always dark regardless of theme) ─────────── */
+.navbar.cm-navbar {
+    background-color: var(--cm-navbar-bg) !important;
+    border-bottom: 1px solid var(--cm-navbar-border);
+}
+
+/* ── Page header ──────────────────────────────────────── */
+.cm-page-header {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+.cm-page-header h3 {
+    margin: 0;
+    font-weight: 600;
+}
+.cm-page-header .cm-actions {
+    margin-left: auto;
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+/* ── Breadcrumb ───────────────────────────────────────── */
+.cm-breadcrumb {
+    font-size: 0.85rem;
+    color: var(--cm-text-muted);
+    margin-bottom: .5rem;
+}
+.cm-breadcrumb a {
+    color: var(--cm-text-muted);
+    text-decoration: none;
+}
+.cm-breadcrumb a:hover { color: var(--cm-accent); }
+.cm-breadcrumb .sep {
+    margin: 0 .35rem;
+    opacity: 0.5;
+}
+
+/* ── Stat cards (unified) ─────────────────────────────── */
+.cm-stat-card {
+    background-color: var(--cm-surface);
+    border: 1px solid var(--cm-border);
+    border-left: 4px solid var(--cm-accent);
+    border-radius: var(--cm-radius);
+    padding: 1rem 1.25rem;
+    box-shadow: var(--cm-shadow-sm);
+    position: relative;
+    transition: box-shadow .15s;
+    height: 100%;
+}
+.cm-stat-card:hover { box-shadow: var(--cm-shadow); }
+.cm-stat-card.variant-success { border-left-color: var(--cm-success); }
+.cm-stat-card.variant-warning { border-left-color: var(--cm-warning); }
+.cm-stat-card.variant-danger  { border-left-color: var(--cm-danger); }
+.cm-stat-card.variant-info    { border-left-color: var(--cm-info); }
+.cm-stat-card .cm-stat-label {
+    font-size: 0.8rem;
+    color: var(--cm-text-muted);
+    margin-bottom: .25rem;
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+}
+.cm-stat-card .cm-stat-value {
+    font-size: 1.85rem;
+    font-weight: 600;
+    line-height: 1.15;
+    color: var(--cm-text);
+}
+.cm-stat-card .cm-stat-value .text-muted {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+.cm-stat-card a.stretched-link {
+    font-size: 0;
+}
+
+/* ── Empty state ──────────────────────────────────────── */
+.cm-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--cm-text-muted);
+}
+.cm-empty .cm-empty-icon {
+    font-size: 2rem;
+    opacity: 0.45;
+    margin-bottom: .5rem;
+}
+.cm-empty .cm-empty-msg {
+    margin-bottom: .75rem;
+}
+
+/* ── Responsive table: card fallback on mobile ────────── */
+@media (max-width: 767.98px) {
+    .cm-table-responsive table.cm-stacked thead {
+        display: none;
+    }
+    .cm-table-responsive table.cm-stacked,
+    .cm-table-responsive table.cm-stacked tbody,
+    .cm-table-responsive table.cm-stacked tr,
+    .cm-table-responsive table.cm-stacked td {
+        display: block;
+        width: 100%;
+    }
+    .cm-table-responsive table.cm-stacked tr {
+        border: 1px solid var(--cm-border);
+        border-radius: var(--cm-radius-sm);
+        margin-bottom: .75rem;
+        padding: .5rem;
+        background: var(--cm-surface);
+    }
+    .cm-table-responsive table.cm-stacked td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: .35rem .5rem;
+        border: none;
+        text-align: right;
+    }
+    .cm-table-responsive table.cm-stacked td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--cm-text-muted);
+        text-align: left;
+        flex-shrink: 0;
+    }
+    .cm-table-responsive table.cm-stacked td[data-label=""]::before,
+    .cm-table-responsive table.cm-stacked td:not([data-label])::before {
+        content: none;
+    }
+}
+
+/* ── Filter bar (sticky) ──────────────────────────────── */
+.cm-filter-bar {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: .5rem 0;
+    margin-bottom: .75rem;
+}
+.cm-filter-bar .cm-search {
+    max-width: 360px;
+    flex: 1 1 240px;
+}
+
+/* ── Form layout ──────────────────────────────────────── */
+.cm-form-narrow {
+    max-width: 760px;
+    margin: 0 auto;
+}
+.cm-form-wide {
+    max-width: 1040px;
+    margin: 0 auto;
+}
+.form-label {
+    color: var(--cm-text);
+    font-weight: 500;
+}
+.form-text, .form-hint {
+    color: var(--cm-text-muted);
+}
+
+/* submit button with spinner */
+button[data-loading-text] .spinner-border {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-width: 0.14em;
+    margin-right: .35rem;
+    display: none;
+}
+button[data-loading-text].is-loading .spinner-border { display: inline-block; }
+button[data-loading-text].is-loading { pointer-events: none; opacity: 0.75; }
+
+/* ── Quick Nav modal ──────────────────────────────────── */
+#cm-quicknav-modal .modal-dialog { max-width: 560px; margin-top: 10vh; }
+#cm-quicknav-modal .modal-content {
+    background-color: var(--cm-surface);
+    border: 1px solid var(--cm-border);
+    border-radius: var(--cm-radius);
+}
+#cm-quicknav-input {
+    border: none;
+    background: transparent;
+    font-size: 1rem;
+    padding: .75rem 1rem;
+    color: var(--cm-text);
+    width: 100%;
+    outline: none;
+}
+#cm-quicknav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 360px;
+    overflow-y: auto;
+    border-top: 1px solid var(--cm-border);
+}
+#cm-quicknav-list li {
+    padding: .5rem 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    color: var(--cm-text);
+}
+#cm-quicknav-list li.is-active,
+#cm-quicknav-list li:hover {
+    background-color: var(--cm-surface-hover);
+}
+#cm-quicknav-list li .cm-hint {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--cm-text-subtle);
+}
+#cm-quicknav-list .cm-empty-hint {
+    text-align: center;
+    color: var(--cm-text-muted);
+    padding: 1.5rem;
+}
+
+/* ── Theme toggle button ──────────────────────────────── */
+.cm-theme-toggle .bi { font-size: 1rem; }
+
+/* ── Flash alerts fade-in ─────────────────────────────── */
+.alert-dismissible.fade.show { animation: cmFadeIn .25s ease-out; }
+@keyframes cmFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Utility: status badge dots ───────────────────────── */
+.cm-status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: .35rem;
+    vertical-align: middle;
+}
+.cm-status-dot.success { background: var(--cm-success); }
+.cm-status-dot.warning { background: var(--cm-warning); }
+.cm-status-dot.danger  { background: var(--cm-danger); }
+.cm-status-dot.running { background: var(--cm-text-subtle); animation: cmPulse 1.2s infinite; }
+@keyframes cmPulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+}

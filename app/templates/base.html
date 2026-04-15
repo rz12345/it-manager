@@ -5,23 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}IT Manager{% endblock %}</title>
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+    {# ── FOUC-safe theme bootstrap (must run before CSS paints) ── #}
+    <script>
+      (function () {
+        try {
+          var pref = localStorage.getItem('cm-theme') || 'auto';
+          var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = (pref === 'auto') ? (sysDark ? 'dark' : 'light') : pref;
+          document.documentElement.setAttribute('data-bs-theme', theme);
+          document.documentElement.setAttribute('data-cm-theme-pref', pref);
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block head_extra %}{% endblock %}
 </head>
-<body class="bg-light">
+<body>
 
 {% if current_user.is_authenticated %}
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+<nav class="navbar navbar-expand-lg navbar-dark cm-navbar shadow-sm">
     <div class="container-fluid px-4">
         <a class="navbar-brand fw-semibold" href="{{ url_for('dashboard.index') }}">
             <i class="bi bi-hdd-network me-1"></i>IT Manager
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                data-bs-target="#mainNav">
+                data-bs-target="#mainNav" aria-label="切換選單">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="mainNav">
@@ -62,9 +76,32 @@
             </ul>
             <ul class="navbar-nav">
                 <li class="nav-item">
+                    <button type="button" class="btn btn-link nav-link" id="cm-quicknav-btn"
+                            title="快速跳轉 (Ctrl+K)" aria-label="快速跳轉">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </li>
+                <li class="nav-item dropdown cm-theme-toggle">
+                    <button class="btn btn-link nav-link dropdown-toggle" data-bs-toggle="dropdown"
+                            type="button" title="主題" aria-label="主題切換">
+                        <i class="bi" id="cm-theme-icon"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item" data-cm-theme="light">
+                            <i class="bi bi-sun me-2"></i>亮色
+                        </button></li>
+                        <li><button class="dropdown-item" data-cm-theme="dark">
+                            <i class="bi bi-moon-stars me-2"></i>深色
+                        </button></li>
+                        <li><button class="dropdown-item" data-cm-theme="auto">
+                            <i class="bi bi-circle-half me-2"></i>跟隨系統
+                        </button></li>
+                    </ul>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link position-relative"
                        href="{{ url_for('dashboard.index') }}#alerts"
-                       title="未讀告警">
+                       title="未讀告警" aria-label="未讀告警">
                         <i class="bi bi-bell"></i>
                         {% if unread_alert_count and unread_alert_count > 0 %}
                             <span class="position-absolute top-50 start-100 translate-middle badge rounded-pill bg-danger">
@@ -103,9 +140,9 @@
 <main class="container-fluid py-4 px-4">
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
-            <div class="alert alert-{{ category }} py-2 alert-dismissible fade show">
+            <div class="alert alert-{{ category }} py-2 alert-dismissible fade show" role="alert">
                 {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="關閉"></button>
             </div>
         {% endfor %}
     {% endwith %}
@@ -113,14 +150,15 @@
     {% block content %}{% endblock %}
 </main>
 
-<div class="toast-container position-fixed top-0 end-0 p-3" id="toast-container" style="z-index: 1080;"></div>
+<div class="toast-container position-fixed top-0 end-0 p-3" id="toast-container"
+     role="status" aria-live="polite" aria-atomic="true" style="z-index: 1080;"></div>
 
-<div class="modal fade" id="confirm-modal" tabindex="-1">
+<div class="modal fade" id="confirm-modal" tabindex="-1" aria-labelledby="confirm-modal-title">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="confirm-modal-title">確認操作</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
             </div>
             <div class="modal-body" id="confirm-modal-body">確定要執行嗎？</div>
             <div class="modal-footer">
@@ -131,7 +169,33 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+{% if current_user.is_authenticated %}
+<div class="modal fade" id="cm-quicknav-modal" tabindex="-1" aria-labelledby="cm-quicknav-input">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <input type="text" id="cm-quicknav-input" placeholder="跳轉頁面… (Esc 關閉)" aria-label="快速跳轉搜尋">
+            <ul id="cm-quicknav-list"></ul>
+        </div>
+    </div>
+</div>
+<script id="cm-quicknav-data" type="application/json">
+{{ {
+    '儀表板':                url_for('dashboard.index'),
+    '備份任務':              url_for('tasks.index'),
+    'Email 任務':            url_for('email_tasks.index'),
+    '資產 — 主機':           url_for('assets.index', tab='hosts'),
+    '資產 — 設備':           url_for('assets.index', tab='devices'),
+    '資產 — 主機類型模板':   url_for('assets.index', tab='templates'),
+    '郵件模板':              url_for('templates_mgr.index'),
+    '網頁爬蟲':              url_for('scrapers.index'),
+    '紀錄 — 備份':           url_for('logs.index', tab='backup'),
+    '紀錄 — Email':          url_for('logs.index', tab='email'),
+    '紀錄 — 使用者活動':     url_for('logs.index', tab='user'),
+} | tojson }}
+</script>
+{% endif %}
+
+<script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>

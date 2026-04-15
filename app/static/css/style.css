@@ -1,4 +1,4 @@
-/* IT Manager — 共用樣式 */
+/* IT Manager — 共用樣式（legacy + tag 系統） */
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC",
@@ -14,49 +14,53 @@ body {
     border-radius: 0.25rem;
 }
 
-.card {
-    border-radius: 0.5rem;
-}
-
 code {
-    color: #0d6efd;
-    background: rgba(13, 110, 253, 0.06);
+    color: var(--cm-accent);
+    background: color-mix(in srgb, var(--cm-accent) 8%, transparent);
     padding: 0 0.25rem;
     border-radius: 0.2rem;
 }
 
+/* ── Legacy stat-card（仍被少數頁面使用，向後相容） ── */
 .stat-card {
-    border-left: 4px solid var(--bs-primary);
+    border-left: 4px solid var(--cm-accent);
+    background: var(--cm-surface);
+    border-radius: var(--cm-radius);
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--cm-border);
+    border-left-width: 4px;
 }
-.stat-card.stat-success { border-left-color: var(--bs-success); }
-.stat-card.stat-warning { border-left-color: var(--bs-warning); }
-.stat-card.stat-danger  { border-left-color: var(--bs-danger); }
-.stat-card.stat-info    { border-left-color: var(--bs-info); }
+.stat-card.stat-success { border-left-color: var(--cm-success); }
+.stat-card.stat-warning { border-left-color: var(--cm-warning); }
+.stat-card.stat-danger  { border-left-color: var(--cm-danger); }
+.stat-card.stat-info    { border-left-color: var(--cm-info); }
 
 .stat-card .stat-value {
-    font-size: 2rem;
+    font-size: 1.85rem;
     font-weight: 600;
     line-height: 1.2;
+    color: var(--cm-text);
+}
+.stat-card .stat-label {
+    font-size: 0.8rem;
+    color: var(--cm-text-muted);
+    margin-top: 0.25rem;
 }
 
 .member-list {
     max-height: 240px;
     overflow-y: auto;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
+    border: 1px solid var(--cm-border);
+    border-radius: var(--cm-radius-sm);
     padding: 0.5rem 0.75rem;
-    background: #fff;
+    background: var(--cm-surface);
 }
 
 /* diff2html 容器微調 */
-.d2h-wrapper {
-    font-size: 0.85rem;
-}
-.d2h-file-header {
-    background: #f8f9fa;
-}
+.d2h-wrapper { font-size: 0.85rem; }
+.d2h-file-header { background: var(--cm-surface-muted); }
 
-/* ── 標籤 chip — 用於列表頁與篩選列 ── */
+/* ── 標籤 chip ── */
 .tag-chip {
   display: inline-flex;
   align-items: center;
@@ -72,15 +76,15 @@ code {
 }
 .tag-chip:hover { filter: brightness(0.95); }
 
-.tag-gray   { background: #e3e2e0; color: #787774; }
-.tag-brown  { background: #eee0da; color: #9f6b53; }
-.tag-orange { background: #fadec9; color: #d9730d; }
-.tag-yellow { background: #fdecc8; color: #cb912f; }
-.tag-green  { background: #dbeddb; color: #448361; }
-.tag-blue   { background: #d3e5ef; color: #337ea9; }
-.tag-purple { background: #e8deee; color: #9065b0; }
-.tag-pink   { background: #f5e0e9; color: #c14f8a; }
-.tag-red    { background: #ffe2dd; color: #d44c47; }
+.tag-gray   { background: var(--cm-tag-gray-bg);   color: var(--cm-tag-gray-fg); }
+.tag-brown  { background: var(--cm-tag-brown-bg);  color: var(--cm-tag-brown-fg); }
+.tag-orange { background: var(--cm-tag-orange-bg); color: var(--cm-tag-orange-fg); }
+.tag-yellow { background: var(--cm-tag-yellow-bg); color: var(--cm-tag-yellow-fg); }
+.tag-green  { background: var(--cm-tag-green-bg);  color: var(--cm-tag-green-fg); }
+.tag-blue   { background: var(--cm-tag-blue-bg);   color: var(--cm-tag-blue-fg); }
+.tag-purple { background: var(--cm-tag-purple-bg); color: var(--cm-tag-purple-fg); }
+.tag-pink   { background: var(--cm-tag-pink-bg);   color: var(--cm-tag-pink-fg); }
+.tag-red    { background: var(--cm-tag-red-bg);    color: var(--cm-tag-red-fg); }
 
 /* ── Tag color dots ── */
 .tag-dot {
@@ -90,18 +94,18 @@ code {
   display: inline-block;
   flex-shrink: 0;
 }
-.tag-dot-gray   { background: #787774; }
-.tag-dot-brown  { background: #9f6b53; }
-.tag-dot-orange { background: #d9730d; }
-.tag-dot-yellow { background: #cb912f; }
-.tag-dot-green  { background: #448361; }
-.tag-dot-blue   { background: #337ea9; }
-.tag-dot-purple { background: #9065b0; }
-.tag-dot-pink   { background: #c14f8a; }
-.tag-dot-red    { background: #d44c47; }
+.tag-dot-gray   { background: var(--cm-tag-gray-fg); }
+.tag-dot-brown  { background: var(--cm-tag-brown-fg); }
+.tag-dot-orange { background: var(--cm-tag-orange-fg); }
+.tag-dot-yellow { background: var(--cm-tag-yellow-fg); }
+.tag-dot-green  { background: var(--cm-tag-green-fg); }
+.tag-dot-blue   { background: var(--cm-tag-blue-fg); }
+.tag-dot-purple { background: var(--cm-tag-purple-fg); }
+.tag-dot-pink   { background: var(--cm-tag-pink-fg); }
+.tag-dot-red    { background: var(--cm-tag-red-fg); }
 
 /* ── Settings panel tag rows ── */
-.tag-row-wrapper { border-bottom: 1px solid #f0f0ef; }
+.tag-row-wrapper { border-bottom: 1px solid var(--cm-border); }
 .tag-row-wrapper:last-child { border-bottom: none; }
 
 .tag-row {
@@ -112,7 +116,7 @@ code {
   min-height: 40px;
   cursor: pointer;
 }
-.tag-row:hover { background: #f7f7f5; }
+.tag-row:hover { background: var(--cm-surface-hover); }
 
 .tag-row-actions {
   display: flex;
@@ -130,7 +134,7 @@ code {
 
 .tag-row-name {
   font-size: 0.875rem;
-  color: #37352f;
+  color: var(--cm-text);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -139,7 +143,7 @@ code {
 }
 .tag-row-usage {
   font-size: 0.73rem;
-  color: #9b9a97;
+  color: var(--cm-text-subtle);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -149,14 +153,14 @@ code {
   border: none;
   padding: 3px 6px;
   border-radius: 4px;
-  color: #9b9a97;
+  color: var(--cm-text-subtle);
   cursor: pointer;
   line-height: 1;
   font-size: 0.8rem;
 }
 .tag-action-btn:hover {
-  background: #eeeeed;
-  color: #37352f;
+  background: var(--cm-surface-hover);
+  color: var(--cm-text);
 }
 
 .tag-edit-panel {
@@ -164,8 +168,8 @@ code {
   flex-direction: column;
   gap: 10px;
   padding: 10px 14px 14px;
-  background: #fafaf9;
-  border-top: 1px solid #f0f0ef;
+  background: var(--cm-surface-muted);
+  border-top: 1px solid var(--cm-border);
 }
 .tag-row-wrapper.is-editing .tag-edit-panel { display: flex; }
 .tag-row-wrapper.is-editing .tag-row        { display: none; }
@@ -190,28 +194,29 @@ code {
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.78rem;
-  color: #37352f;
+  color: var(--cm-text);
   border: 2px solid transparent;
   transition: border-color .1s, background .1s;
 }
 .tag-color-opt input[type="radio"]:checked + label {
-  border-color: #37352f;
+  border-color: var(--cm-text);
 }
-.tag-color-opt label:hover { background: #eeeeed; }
+.tag-color-opt label:hover { background: var(--cm-surface-hover); }
 
 .tag-rename-input {
   width: 100%;
-  border: 1px solid #e0e0de;
+  border: 1px solid var(--cm-border);
   border-radius: 4px;
   padding: 6px 8px;
   font-size: 0.875rem;
   outline: none;
-  background: #fff;
+  background: var(--cm-surface);
+  color: var(--cm-text);
   box-sizing: border-box;
 }
 .tag-rename-input:focus {
-  border-color: #a8a8a5;
-  box-shadow: 0 0 0 2px rgba(55,53,47,.08);
+  border-color: var(--cm-border-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cm-text) 8%, transparent);
 }
 
 .tag-edit-actions {
@@ -224,30 +229,36 @@ code {
   padding: 5px 10px;
   font-size: 0.8rem;
   border-radius: 4px;
-  background: #37352f;
-  color: #fff;
+  background: var(--cm-text);
+  color: var(--cm-surface);
   border: none;
   cursor: pointer;
 }
-.tag-edit-btn-confirm:hover { background: #1a1915; }
+.tag-edit-btn-confirm:hover { opacity: 0.85; }
 .tag-edit-btn-cancel {
   padding: 5px 10px;
   font-size: 0.8rem;
   border-radius: 4px;
-  background: #f0f0ef;
-  color: #37352f;
+  background: var(--cm-surface-hover);
+  color: var(--cm-text);
   border: none;
   cursor: pointer;
 }
-.tag-edit-btn-cancel:hover { background: #e0e0de; }
+.tag-edit-btn-cancel:hover { background: var(--cm-border); }
 .tag-edit-btn-delete {
   padding: 5px 10px;
   font-size: 0.8rem;
   border-radius: 4px;
   background: none;
-  color: #d44c47;
-  border: 1px solid #d44c47;
+  color: var(--cm-danger);
+  border: 1px solid var(--cm-danger);
   cursor: pointer;
   margin-left: auto;
 }
-.tag-edit-btn-delete:hover { background: #ffe2dd; }
+.tag-edit-btn-delete:hover { background: color-mix(in srgb, var(--cm-danger) 15%, transparent); }
+
+/* status toggle badge（email_tasks/list.html） */
+button.status-toggle {
+    border: none;
+    cursor: pointer;
+}

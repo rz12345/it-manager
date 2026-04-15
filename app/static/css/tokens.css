@@ -1,0 +1,74 @@
+/* IT Manager — Design Tokens
+ * CSS variables for light & dark themes.
+ * Bootstrap 5.3 natively honours data-bs-theme="dark" for most components;
+ * these tokens provide additional semantic colours used by custom components.
+ */
+
+:root,
+[data-bs-theme="light"] {
+    --cm-surface:        #ffffff;
+    --cm-surface-muted:  #f8f9fa;
+    --cm-surface-hover:  #f1f3f5;
+    --cm-border:         #e5e7eb;
+    --cm-border-strong:  #d1d5db;
+    --cm-text:           #212529;
+    --cm-text-muted:     #6c757d;
+    --cm-text-subtle:    #9b9a97;
+
+    --cm-navbar-bg:      #1f2329;
+    --cm-navbar-border:  #2d3139;
+
+    --cm-accent:         #0d6efd;
+    --cm-success:        #198754;
+    --cm-warning:        #ffc107;
+    --cm-danger:         #dc3545;
+    --cm-info:           #0dcaf0;
+
+    --cm-shadow-sm:      0 1px 2px rgba(0,0,0,.04);
+    --cm-shadow:         0 2px 8px rgba(0,0,0,.06);
+    --cm-radius:         0.5rem;
+    --cm-radius-sm:      0.375rem;
+
+    --cm-tag-gray-bg:    #e3e2e0;  --cm-tag-gray-fg:    #787774;
+    --cm-tag-brown-bg:   #eee0da;  --cm-tag-brown-fg:   #9f6b53;
+    --cm-tag-orange-bg:  #fadec9;  --cm-tag-orange-fg:  #d9730d;
+    --cm-tag-yellow-bg:  #fdecc8;  --cm-tag-yellow-fg:  #cb912f;
+    --cm-tag-green-bg:   #dbeddb;  --cm-tag-green-fg:   #448361;
+    --cm-tag-blue-bg:    #d3e5ef;  --cm-tag-blue-fg:    #337ea9;
+    --cm-tag-purple-bg:  #e8deee;  --cm-tag-purple-fg:  #9065b0;
+    --cm-tag-pink-bg:    #f5e0e9;  --cm-tag-pink-fg:    #c14f8a;
+    --cm-tag-red-bg:     #ffe2dd;  --cm-tag-red-fg:     #d44c47;
+}
+
+[data-bs-theme="dark"] {
+    --cm-surface:        #1e2024;
+    --cm-surface-muted:  #262930;
+    --cm-surface-hover:  #2d313a;
+    --cm-border:         #343a42;
+    --cm-border-strong:  #454c55;
+    --cm-text:           #e8eaed;
+    --cm-text-muted:     #a0a6ad;
+    --cm-text-subtle:    #6f7680;
+
+    --cm-navbar-bg:      #15171b;
+    --cm-navbar-border:  #262930;
+
+    --cm-accent:         #4d9cff;
+    --cm-success:        #4ade80;
+    --cm-warning:        #fbbf24;
+    --cm-danger:         #f87171;
+    --cm-info:           #38bdf8;
+
+    --cm-shadow-sm:      0 1px 2px rgba(0,0,0,.3);
+    --cm-shadow:         0 2px 10px rgba(0,0,0,.4);
+
+    --cm-tag-gray-bg:    #3a3a38;  --cm-tag-gray-fg:    #b5b4b1;
+    --cm-tag-brown-bg:   #5a3f31;  --cm-tag-brown-fg:   #e0b59b;
+    --cm-tag-orange-bg:  #6b3d1c;  --cm-tag-orange-fg:  #ffb77a;
+    --cm-tag-yellow-bg:  #6b5423;  --cm-tag-yellow-fg:  #fde08b;
+    --cm-tag-green-bg:   #2b4a36;  --cm-tag-green-fg:   #8fd6a3;
+    --cm-tag-blue-bg:    #1f4766;  --cm-tag-blue-fg:    #8ecbef;
+    --cm-tag-purple-bg:  #4a3560;  --cm-tag-purple-fg:  #d0b1e6;
+    --cm-tag-pink-bg:    #5a2e40;  --cm-tag-pink-fg:    #f2aecb;
+    --cm-tag-red-bg:     #5a2622;  --cm-tag-red-fg:     #ff9d96;
+}
