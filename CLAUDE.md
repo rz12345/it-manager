@@ -119,8 +119,7 @@ it-manager/
 │   └── migrate_legacy.py       # 一次性：從 config-manager / task-manager 舊 DB 匯入
 ├── backups/
 │   ├── hosts/                  # {host_id}/{timestamp}_{filename}
-│   ├── devices/                # {device_id}/{timestamp}_running.cfg
-│   └── legacy/                 # 舊專案 DB 備份（遷移完成後可刪）
+│   └── devices/                # {device_id}/{timestamp}_running.cfg
 ├── data/                       # SQLite DB + scheduler.lock
 │   ├── email_templates/        # 模板 HTML 檔（{template_id}.html）
 │   └── uploads/                # 附件儲存（template_{id}/{uuid}_{filename}）
@@ -208,4 +207,4 @@ it-manager/
 - `Y:/config-manager/`（網路設備與 Linux 主機組態備份）
 - `Y:/task-manager/`（Email 排程與 Web 爬蟲）
 
-兩個舊專案的 DB 備份保留於 `backups/legacy/{config_manager,mail_scheduler}.db`，匯入腳本為 `scripts/migrate_legacy.py`（config-manager 在衝突時勝出）。
+匯入腳本為 `scripts/migrate_legacy.py`（config-manager 在衝突時勝出）；舊 DB 備份已於遷移完成後移除。
