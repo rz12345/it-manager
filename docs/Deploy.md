@@ -18,10 +18,10 @@ sudo apt install -y python3 python3-venv python3-pip git nginx
 ## 2. 取得原始碼
 
 ```bash
-sudo mkdir -p /opt/config-manager
-sudo chown "$USER":"$USER" /opt/config-manager
-git clone <REPO_URL> /opt/config-manager
-cd /opt/config-manager
+sudo mkdir -p /opt/it-manager
+sudo chown "$USER":"$USER" /opt/it-manager
+git clone <REPO_URL> /opt/it-manager
+cd /opt/it-manager
 ```
 
 ---
@@ -29,7 +29,7 @@ cd /opt/config-manager
 ## 3. 建立虛擬環境 + 安裝依賴
 
 ```bash
-cd /opt/config-manager
+cd /opt/it-manager
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
@@ -59,8 +59,8 @@ nano .env
 |---|---|
 | `SECRET_KEY` | 上述 `token_hex(32)` 輸出 |
 | `CRYPTO_KEY` | 上述 `Fernet.generate_key()` 輸出 |
-| `DATABASE_URL` | 保留預設 `sqlite:///data/config_manager.db`（絕對路徑） |
-| `BACKUP_BASE_PATH` | 預設專案內 `backups/`；生產環境建議 `/var/lib/config-manager/backups` |
+| `DATABASE_URL` | 保留預設 `sqlite:///data/sqlite.db`（絕對路徑） |
+| `BACKUP_BASE_PATH` | 預設專案內 `backups/`；生產環境建議 `/var/lib/it-manager/backups` |
 | `DISPLAY_TZ` | `Asia/Taipei` |
 
 > **重要**：`CRYPTO_KEY` 一旦建立並寫入任何密碼後即不可更換，否則無法解密既有資料。備份 `.env` 至安全位置。
@@ -70,14 +70,14 @@ nano .env
 ## 5. 初始化資料庫
 
 ```bash
-cd /opt/config-manager
+cd /opt/it-manager
 source venv/bin/activate
 export FLASK_APP=run.py
 flask db upgrade
 flask hosts seed-templates   # 建立 Web / DB / General 預設主機類型模板
 ```
 
-開發期可執行 `python run.py` 以 5000 port 啟動確認，開瀏覽器首次進入會自動導向 `/config-manager/auth/setup` 建立 Admin 帳號。
+開發期可執行 `python run.py` 以 5000 port 啟動確認，開瀏覽器首次進入會自動導向 `/it-manager/auth/setup` 建立 Admin 帳號。
 
 ---
 
@@ -88,23 +88,22 @@ source venv/bin/activate
 pip install gunicorn
 ```
 
-建立 `/etc/systemd/system/config-manager.service`：
+建立 `/etc/systemd/system/it-manager.service`：
 
 ```ini
 [Unit]
-Description=Config Manager (Flask + Gunicorn)
+Description=IT Manager (Flask + Gunicorn)
 After=network.target
 
 [Service]
-User=www-data
-Group=www-data
-WorkingDirectory=/opt/config-manager
-Environment="PATH=/opt/config-manager/venv/bin"
-ExecStart=/opt/config-manager/venv/bin/gunicorn \
+User=username
+WorkingDirectory=/opt/it-manager
+
+ExecStart=gunicorn \
     --workers 3 \
-    --bind 127.0.0.1:8017 \
-    --access-logfile /opt/config-manager/data/access.log \
-    --error-logfile /opt/config-manager/data/error.log \
+    --bind 127.0.0.1:8018 \
+    --access-logfile /opt/it-manager/data/access.log \
+    --error-logfile /opt/it-manager/data/error.log \
     "run:app"
 Restart=on-failure
 
@@ -115,26 +114,25 @@ WantedBy=multi-user.target
 啟動：
 
 ```bash
-sudo chown -R www-data:www-data /opt/config-manager/data /opt/config-manager/backups
 sudo systemctl daemon-reload
-sudo systemctl enable --now config-manager
-sudo systemctl status config-manager
+sudo systemctl enable --now flask_it_manager
+sudo systemctl status flask_it_manager
 ```
 
 ---
 
 ## 7. nginx 反向代理
 
-`/etc/nginx/sites-available/config-manager`：
+`/etc/nginx/sites-available/it-manager`：
 
 ```nginx
-location /config-manager/ {
-    proxy_pass         http://127.0.0.1:8017/config-manager/;
+location /it-manager/ {
+    proxy_pass         http://127.0.0.1:8017/it-manager/;
     proxy_set_header   Host              $host;
     proxy_set_header   X-Real-IP         $remote_addr;
     proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
     proxy_set_header   X-Forwarded-Proto $scheme;
-    proxy_set_header   X-Forwarded-Prefix /config-manager;
+    proxy_set_header   X-Forwarded-Prefix /it-manager;
     proxy_read_timeout 300;
     client_max_body_size 20m;
 }
@@ -143,11 +141,11 @@ location /config-manager/ {
 啟用並測試：
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/config-manager /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/it-manager /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-對外網址：`https://<DOMAIN>/config-manager/`
+對外網址：`https://<DOMAIN>/it-manager/`
 
 ---
 
@@ -164,7 +162,7 @@ sudo crontab -u www-data -e
 
 ```cron
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-* * * * * cd /opt/config-manager && /opt/config-manager/venv/bin/python -m scheduler.runner >> /opt/config-manager/data/scheduler.log 2>&1
+* * * * * cd /opt/it-manager && /opt/it-manager/venv/bin/python -m scheduler.runner >> /opt/it-manager/data/scheduler.log 2>&1
 ```
 
 `scheduler.runner` 每分鐘觸發一次，但只執行 `next_run <= now` 的 Host/Device，實際備份頻率由各目標的 Cron 表達式決定。
@@ -172,7 +170,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 測試：
 
 ```bash
-sudo -u www-data bash -c 'cd /opt/config-manager && venv/bin/python -m scheduler.runner'
+sudo -u www-data bash -c 'cd /opt/it-manager && venv/bin/python -m scheduler.runner'
 tail -f data/scheduler.log
 ```
 
@@ -193,12 +191,12 @@ tail -f data/scheduler.log
 ## 10. 升級流程
 
 ```bash
-cd /opt/config-manager
+cd /opt/it-manager
 source venv/bin/activate
 git pull
 pip install -r requirements.txt
 flask db upgrade
-sudo systemctl restart config-manager
+sudo systemctl restart it-manager
 ```
 
 ---
@@ -208,15 +206,15 @@ sudo systemctl restart config-manager
 | 資產 | 位置 |
 |---|---|
 | 應用設定 / 金鑰 | `.env`（尤其 `CRYPTO_KEY`） |
-| 資料庫 | `data/config_manager.db` |
+| 資料庫 | `data/sqlite.db` |
 | 備份檔案 | `BACKUP_BASE_PATH`（預設 `backups/hosts/`、`backups/devices/`） |
 | 排程紀錄 | `data/scheduler.log` |
 
 建議每日 `rsync`：
 
 ```bash
-rsync -a --delete /opt/config-manager/data/ /opt/config-manager/backups/ /mnt/backup/config-manager/
-cp /opt/config-manager/.env /mnt/backup/config-manager/env.backup
+rsync -a --delete /opt/it-manager/data/ /opt/it-manager/backups/ /mnt/backup/it-manager/
+cp /opt/it-manager/.env /mnt/backup/it-manager/env.backup
 ```
 
 還原：複製 `.env`、`data/`、`backups/` 至新機後 `flask db upgrade` 即可。
@@ -227,7 +225,7 @@ cp /opt/config-manager/.env /mnt/backup/config-manager/env.backup
 
 | 症狀 | 檢查 |
 |---|---|
-| 登入後頁面 404 | 確認 nginx `proxy_pass` 尾端 `/config-manager/` 斜線完整；`X-Forwarded-Prefix` 有帶上 |
+| 登入後頁面 404 | 確認 nginx `proxy_pass` 尾端 `/it-manager/` 斜線完整；`X-Forwarded-Prefix` 有帶上 |
 | 登入後 CSRF 錯誤 | 多半為 `SECRET_KEY` 被重啟改寫；固定 `.env` 中 `SECRET_KEY` |
 | 備份報 `InvalidToken` | `CRYPTO_KEY` 與寫入密碼時不一致；需還原舊金鑰或重新於 Web UI 編輯每台主機/設備密碼 |
 | cron 不執行 | `sudo systemctl status cron`；確認 crontab 對應使用者（`crontab -u www-data -l`）；檢查 `data/scheduler.log` |

@@ -1,0 +1,22 @@
+{# 紀錄分頁共用 nav — 使用 active_log_tab 指定當前分頁 #}
+{% set _tab = active_log_tab | default('backup') %}
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'backup' %}active{% endif %}"
+           href="{{ url_for('logs.index', tab='backup') }}">
+            <i class="bi bi-archive me-1"></i>備份歷史
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'email' %}active{% endif %}"
+           href="{{ url_for('logs.index', tab='email') }}">
+            <i class="bi bi-envelope me-1"></i>Email 寄送
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'user' %}active{% endif %}"
+           href="{{ url_for('logs.index', tab='user') }}">
+            <i class="bi bi-person-lines-fill me-1"></i>使用者紀錄
+        </a>
+    </li>
+</ul>

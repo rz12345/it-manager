@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import (BooleanField, IntegerField, PasswordField, SelectField,
+from wtforms import (BooleanField, IntegerField, SelectField,
                      StringField, SubmitField)
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
@@ -17,16 +17,12 @@ class DeviceForm(FlaskForm):
         choices=[(v, VENDOR_LABEL[v]) for v in DEVICE_VENDORS],
         validators=[DataRequired()],
     )
-    username = StringField('使用者', validators=[DataRequired(), Length(max=64)])
-    password = PasswordField(
-        '密碼',
-        validators=[Optional(), Length(max=256)],
-        description='編輯時留白則保留原密碼',
-    )
-    enable_password = PasswordField(
-        'Enable 密碼',
-        validators=[Optional(), Length(max=256)],
-        description='Cisco enable 模式（選填，留白保留原值）',
+    credential_id = SelectField(
+        '登入驗證',
+        coerce=int,
+        choices=[],
+        validators=[DataRequired(message='請選擇一組驗證')],
+        description='於「設定 → 驗證庫」維護可共用的帳密（含 enable 密碼）',
     )
     backup_command = StringField(
         '備份指令',

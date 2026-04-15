@@ -1,26 +1,16 @@
 {% extends 'base.html' %}
-{% block title %}備份歷史 — Config Manager{% endblock %}
+{% block title %}備份歷史 — IT Manager{% endblock %}
 {% block content %}
 <div class="d-flex align-items-center mb-3">
     <h3 class="mb-0"><i class="bi bi-clock-history me-2"></i>紀錄</h3>
 </div>
 
-<ul class="nav nav-tabs mb-3">
-    <li class="nav-item">
-        <a class="nav-link active" href="{{ url_for('backups.index') }}">
-            <i class="bi bi-archive me-1"></i>備份歷史
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link" href="{{ url_for('logs.user_activity') }}">
-            <i class="bi bi-person-lines-fill me-1"></i>使用者紀錄
-        </a>
-    </li>
-</ul>
+{% include '_log_tabs.html' %}
 
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
         <form method="get" class="row g-2 align-items-center">
+            <input type="hidden" name="tab" value="backup">
             <div class="col-auto"><label class="form-label mb-0 small">類型</label></div>
             <div class="col-auto">
                 <select name="type" class="form-select form-select-sm">
@@ -43,7 +33,7 @@
                 <button class="btn btn-sm btn-primary" type="submit">
                     <i class="bi bi-funnel"></i> 篩選
                 </button>
-                <a href="{{ url_for('backups.index') }}" class="btn btn-sm btn-outline-secondary">清除</a>
+                <a href="{{ url_for('logs.index', tab='backup') }}" class="btn btn-sm btn-outline-secondary">清除</a>
             </div>
         </form>
     </div>
@@ -110,7 +100,7 @@
         {% for p in pagination.iter_pages() %}
             {% if p %}
                 <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="?page={{ p }}&type={{ filter_type }}&status={{ filter_status }}">{{ p }}</a>
+                    <a class="page-link" href="?tab=backup&page={{ p }}&type={{ filter_type }}&status={{ filter_status }}">{{ p }}</a>
                 </li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">…</span></li>

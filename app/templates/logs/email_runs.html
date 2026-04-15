@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Email 寄送紀錄 — IT Manager{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-clock-history me-2"></i>紀錄</h3>
+</div>
+
+{% include '_log_tabs.html' %}
+
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <input type="hidden" name="tab" value="email">
+            <div class="col-auto"><label class="form-label mb-0 small">狀態</label></div>
+            <div class="col-auto">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">全部</option>
+                    <option value="success" {% if selected_status=='success' %}selected{% endif %}>成功</option>
+                    <option value="partial" {% if selected_status=='partial' %}selected{% endif %}>部分失敗</option>
+                    <option value="failed"  {% if selected_status=='failed' %}selected{% endif %}>失敗</option>
+                    <option value="running" {% if selected_status=='running' %}selected{% endif %}>執行中</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-sm btn-primary" type="submit"><i class="bi bi-funnel"></i> 篩選</button>
+                <a href="{{ url_for('logs.index', tab='email') }}" class="btn btn-sm btn-outline-secondary">清除</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>開始時間</th>
+                    <th>任務</th>
+                    <th>收件人</th>
+                    <th class="text-center">狀態</th>
+                    <th>觸發</th>
+                    <th>錯誤</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs.items %}
+                <tr>
+                    <td class="small text-nowrap">{{ run.started_at|localtime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td class="fw-semibold">
+                        {% if run.task %}
+                            <a class="text-decoration-none" href="{{ url_for('email_tasks.detail', task_id=run.task.id) }}">{{ run.task.name }}</a>
+                        {% else %}(deleted){% endif %}
+                    </td>
+                    <td class="small text-muted">{{ run.recipients or '-' }}</td>
+                    <td class="text-center">
+                        {% if run.status == 'success' %}<span class="badge bg-success">成功</span>
+                        {% elif run.status == 'partial' %}<span class="badge bg-warning text-dark">部分</span>
+                        {% elif run.status == 'failed' %}<span class="badge bg-danger">失敗</span>
+                        {% else %}<span class="badge bg-secondary">{{ run.status }}</span>{% endif %}
+                    </td>
+                    <td class="small">{{ run.triggered_by }}</td>
+                    <td class="small text-danger">{{ (run.error_message or '')[:120] }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">尚無 email 寄送紀錄。</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if runs.pages > 1 %}
+{% set extra = '' %}
+{% if selected_status %}{% set extra = extra + '&status=' + selected_status %}{% endif %}
+<nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% for p in runs.iter_pages() %}
+            {% if p %}
+                <li class="page-item {% if p == runs.page %}active{% endif %}">
+                    <a class="page-link" href="?tab=email&page={{ p }}{{ extra }}">{{ p }}</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

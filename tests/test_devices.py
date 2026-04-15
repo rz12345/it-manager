@@ -43,7 +43,7 @@ def _form_data(**overrides):
 
 
 def test_admin_create_device(client, logged_in_admin, db):
-    resp = client.post('/config-manager/devices/create',
+    resp = client.post('/it-manager/devices/create',
                        data=_form_data(), follow_redirects=False)
     assert resp.status_code == 302
 
@@ -56,7 +56,7 @@ def test_admin_create_device(client, logged_in_admin, db):
 
 
 def test_custom_backup_command(client, logged_in_admin, db):
-    resp = client.post('/config-manager/devices/create',
+    resp = client.post('/it-manager/devices/create',
                        data=_form_data(name='fw-01', vendor='paloalto_panos',
                                        backup_command='show config running | no-more'),
                        follow_redirects=False)
@@ -68,22 +68,22 @@ def test_custom_backup_command(client, logged_in_admin, db):
 
 def test_device_visibility(client, db, regular_user, group, device, login):
     login('bob', 'bob-pass-12345')
-    resp = client.get(f'/config-manager/devices/{device.id}')
+    resp = client.get(f'/it-manager/devices/{device.id}')
     assert resp.status_code == 403
 
     regular_user.groups.append(group)
     db.session.commit()
-    resp = client.get(f'/config-manager/devices/{device.id}')
+    resp = client.get(f'/it-manager/devices/{device.id}')
     assert resp.status_code == 200
 
 
 def test_regular_user_cannot_delete(client, logged_in_user, device):
-    resp = client.post(f'/config-manager/devices/{device.id}/delete')
+    resp = client.post(f'/it-manager/devices/{device.id}/delete')
     assert resp.status_code == 403
 
 
 def test_admin_delete_device(client, logged_in_admin, device):
-    resp = client.post(f'/config-manager/devices/{device.id}/delete',
+    resp = client.post(f'/it-manager/devices/{device.id}/delete',
                        follow_redirects=False)
     assert resp.status_code == 302
     from app.models import Device

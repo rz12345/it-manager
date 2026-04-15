@@ -36,12 +36,12 @@ def host_with_run(db, tmp_path):
 
 
 def test_backup_index_requires_login(client):
-    resp = client.get('/config-manager/backups/', follow_redirects=False)
+    resp = client.get('/it-manager/backups/', follow_redirects=False)
     assert resp.status_code == 302
 
 
 def test_admin_sees_all_runs(client, logged_in_admin, host_with_run):
-    resp = client.get('/config-manager/backups/')
+    resp = client.get('/it-manager/backups/')
     assert resp.status_code == 200
     assert b'h1' in resp.data
 
@@ -49,7 +49,7 @@ def test_admin_sees_all_runs(client, logged_in_admin, host_with_run):
 def test_regular_user_visibility_filtered(client, db, regular_user, host_with_run, login):
     """一般使用者無分組時備份歷史列表不應看到任何資料。"""
     login('bob', 'bob-pass-12345')
-    resp = client.get('/config-manager/backups/')
+    resp = client.get('/it-manager/backups/')
     assert resp.status_code == 200
     # 列表應顯示「無」提示而不出現 h1
     assert b'h1' not in resp.data
@@ -57,14 +57,14 @@ def test_regular_user_visibility_filtered(client, db, regular_user, host_with_ru
 
 def test_download_record_admin(client, logged_in_admin, host_with_run):
     _, _, rec = host_with_run
-    resp = client.get(f'/config-manager/backups/record/{rec.id}/download')
+    resp = client.get(f'/it-manager/backups/record/{rec.id}/download')
     assert resp.status_code == 200
     assert resp.data == b'hello\n'
 
 
 def test_download_record_denied_for_outside_group(client, logged_in_user, host_with_run):
     _, _, rec = host_with_run
-    resp = client.get(f'/config-manager/backups/record/{rec.id}/download')
+    resp = client.get(f'/it-manager/backups/record/{rec.id}/download')
     assert resp.status_code == 403
 
 
@@ -73,7 +73,7 @@ def test_admin_delete_run_removes_storage(client, logged_in_admin, host_with_run
     storage_path = rec.storage_path
     assert os.path.exists(storage_path)
 
-    resp = client.post(f'/config-manager/backups/run/{run.id}/delete',
+    resp = client.post(f'/it-manager/backups/run/{run.id}/delete',
                        follow_redirects=False)
     assert resp.status_code == 302
     assert not os.path.exists(storage_path)
@@ -87,7 +87,7 @@ def test_task_create_and_run_now(client, logged_in_admin, host_with_run, monkeyp
     """建立 BackupTask、手動執行 — scheduler 缺失時回 501 訊息。"""
     import sys
     h, _, _ = host_with_run
-    resp = client.post('/config-manager/tasks/create',
+    resp = client.post('/it-manager/tasks/create',
                        data={'name': 't1',
                              'schedule_mode': 'advanced',
                              'cron_expr': '0 2 * * *',
@@ -106,5 +106,5 @@ def test_task_create_and_run_now(client, logged_in_admin, host_with_run, monkeyp
 
     # 手動執行 — 無 scheduler 模組時應回 501
     monkeypatch.setitem(sys.modules, 'scheduler.ssh_backup', None)
-    resp = client.post(f'/config-manager/tasks/{t.id}/run')
+    resp = client.post(f'/it-manager/tasks/{t.id}/run')
     assert resp.status_code == 501

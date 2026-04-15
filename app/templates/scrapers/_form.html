@@ -1,0 +1,126 @@
+{{ form.hidden_tag() }}
+
+<div class="mb-3">
+  {{ form.name.label(class='form-label') }}
+  {{ form.name(class='form-control' + (' is-invalid' if form.name.errors else '')) }}
+  {% for e in form.name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+</div>
+
+<div class="mb-3">
+  {{ form.tags.label(class='form-label') }}
+  {{ form.tags(class='form-control', placeholder='例：重要, 週報, 財務') }}
+  <div class="form-text">多個標籤以逗號分隔</div>
+</div>
+
+<div class="mb-3">
+  {{ form.url.label(class='form-label') }}
+  {{ form.url(class='form-control' + (' is-invalid' if form.url.errors else ''), placeholder='https://example.com/release-notes') }}
+  {% for e in form.url.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+</div>
+
+{# ── 擷取規則 card ── #}
+<div class="card mb-3">
+  <div class="card-header"><i class="bi bi-code-slash me-2"></i>擷取規則</div>
+  <div class="card-body">
+
+    {# Segmented button group for extract type #}
+    <div class="mb-3">
+      <label class="form-label">擷取方式</label>
+      <div class="btn-group w-100" role="group" id="extract-type-group">
+        {% for subfield in form.extract_type %}
+        <input type="radio" class="btn-check" name="{{ subfield.name }}"
+               id="etype_{{ subfield.data }}" value="{{ subfield.data }}"
+               {% if subfield.checked %}checked{% endif %} autocomplete="off">
+        <label class="btn btn-outline-secondary" for="etype_{{ subfield.data }}">
+          {% if subfield.data == 'css' %}<i class="bi bi-hash me-1"></i>CSS 選擇器
+          {% elif subfield.data == 'regex' %}<i class="bi bi-regex me-1"></i>正規表達式
+          {% else %}<i class="bi bi-braces me-1"></i>JavaScript
+          {% endif %}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Dynamic hint callout #}
+    <div id="pattern-hint" class="rounded p-3 mb-3 small" style="background:#f0f4ff;border:1px solid #c7d7fd;display:none">
+      <div class="d-flex gap-2">
+        <i class="bi bi-lightbulb-fill text-primary flex-shrink-0 mt-1"></i>
+        <div>
+          <div id="hint-desc" class="fw-semibold mb-1"></div>
+          <div id="hint-example" class="text-muted"></div>
+        </div>
+      </div>
+    </div>
+
+    {# Pattern textarea #}
+    <div>
+      <label class="form-label" id="pattern-label">{{ form.extract_pattern.label.text }}</label>
+      {{ form.extract_pattern(class='form-control font-monospace' + (' is-invalid' if form.extract_pattern.errors else ''),
+          id='extract_pattern', rows=4) }}
+      {% for e in form.extract_pattern.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var CONFIG = {
+    css: {
+      label: 'CSS 選擇器',
+      desc: '選取頁面上符合條件的元素，擷取其文字內容。',
+      examples: ['#release-notes h2', '.version-badge', 'table.changelog td:first-child'],
+      placeholder: '#release-notes h2',
+      rows: 3,
+    },
+    regex: {
+      label: '正規表達式',
+      desc: '在頁面原始碼或文字中比對樣式，使用括號群組 <code>(...)</code> 擷取特定部分。',
+      examples: ['KB(\\d{7})', 'version: ([\\d.]+)', '最新版本：([^\\s]+)'],
+      placeholder: 'KB(\\d{7})',
+      rows: 3,
+    },
+    js: {
+      label: 'JavaScript 函式',
+      desc: '以箭頭函式在 Playwright 頁面內執行，回傳值即為擷取內容。',
+      examples: [
+        "() => document.querySelector('h1')?.textContent.trim()",
+        "() => document.title",
+        "() => document.querySelector('.version')?.getAttribute('data-value')"
+      ],
+      placeholder: "() => document.querySelector('h1')?.textContent.trim()",
+      rows: 5,
+    },
+  };
+
+  var hintBox   = document.getElementById('pattern-hint');
+  var hintDesc  = document.getElementById('hint-desc');
+  var hintEx    = document.getElementById('hint-example');
+  var patLabel  = document.getElementById('pattern-label');
+  var patInput  = document.getElementById('extract_pattern');
+
+  function updateUI() {
+    var checked = document.querySelector('input[name="extract_type"]:checked');
+    if (!checked) return;
+    var cfg = CONFIG[checked.value];
+    if (!cfg) return;
+
+    // hint callout
+    hintDesc.innerHTML = cfg.desc;
+    hintEx.innerHTML = '範例：' + cfg.examples.map(function(e){
+      return '<code>' + e.replace(/</g,'&lt;') + '</code>';
+    }).join('、');
+    hintBox.style.display = '';
+
+    // label & textarea
+    patLabel.textContent = cfg.label;
+    patInput.placeholder = cfg.placeholder;
+    patInput.rows = cfg.rows;
+  }
+
+  document.querySelectorAll('input[name="extract_type"]').forEach(function (el) {
+    el.addEventListener('change', updateUI);
+  });
+  updateUI();
+})();
+</script>

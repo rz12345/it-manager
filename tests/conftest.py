@@ -15,7 +15,7 @@ class TestConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     CRYPTO_KEY = Fernet.generate_key().decode()
     DISPLAY_TZ = 'Asia/Taipei'
-    APPLICATION_ROOT = '/config-manager'
+    APPLICATION_ROOT = '/it-manager'
 
 
 @pytest.fixture()
@@ -71,7 +71,7 @@ def regular_user(db):
 @pytest.fixture()
 def login(client):
     def _login(username: str, password: str):
-        return client.post('/config-manager/auth/login',
+        return client.post('/it-manager/auth/login',
                            data={'username': username, 'password': password},
                            follow_redirects=False)
     return _login

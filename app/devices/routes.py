@@ -9,18 +9,23 @@ from flask import (abort, current_app, flash, jsonify, redirect,
 from flask_login import login_required
 
 from app import db
-from app.crypto import encrypt, safe_decrypt
+from app.crypto import safe_decrypt
 from app.devices import bp
 from app.devices.forms import DeviceForm
 from app.groups.decorators import admin_required, user_can_access
 from app.models import (DEVICE_VENDORS, VENDOR_DEFAULT_COMMAND, BackupRecord,
-                        BackupRun, Device, Group)
+                        BackupRun, Credential, Device, Group)
 from app.settings_store import get_netmiko_timeout
 
 
 def _load_form_choices(form: DeviceForm):
     groups = Group.query.order_by(Group.name).all()
     form.group_id.choices = [(0, '（未分組）')] + [(g.id, g.name) for g in groups]
+
+    creds = Credential.query.order_by(Credential.name).all()
+    form.credential_id.choices = (
+        [(0, '（請選擇）')] + [(c.id, f'{c.name} ({c.username})') for c in creds]
+    )
 
 
 @bp.route('/create', methods=['GET', 'POST'])
@@ -34,15 +39,15 @@ def create():
             flash('設備名稱已存在', 'danger')
         elif form.vendor.data not in DEVICE_VENDORS:
             flash('不支援的廠商', 'danger')
+        elif not form.credential_id.data or not Credential.query.get(form.credential_id.data):
+            flash('請選擇有效的驗證', 'danger')
         else:
             device = Device(
                 name=form.name.data.strip(),
                 ip_address=form.ip_address.data.strip(),
                 port=form.port.data or 22,
                 vendor=form.vendor.data,
-                username=form.username.data.strip(),
-                password_enc=encrypt(form.password.data or ''),
-                enable_password_enc=encrypt(form.enable_password.data or ''),
+                credential_id=form.credential_id.data,
                 backup_command=(form.backup_command.data or '').strip() or None,
                 description=(form.description.data or '').strip(),
                 group_id=(form.group_id.data or None) or None,
@@ -65,8 +70,7 @@ def edit(device_id):
 
     if request.method == 'GET':
         form.group_id.data = device.group_id or 0
-        form.password.data = ''
-        form.enable_password.data = ''
+        form.credential_id.data = device.credential_id
 
     if form.validate_on_submit():
         new_name = form.name.data.strip()
@@ -75,16 +79,14 @@ def edit(device_id):
             flash('設備名稱已存在', 'danger')
         elif form.vendor.data not in DEVICE_VENDORS:
             flash('不支援的廠商', 'danger')
+        elif not form.credential_id.data or not Credential.query.get(form.credential_id.data):
+            flash('請選擇有效的驗證', 'danger')
         else:
             device.name = new_name
             device.ip_address = form.ip_address.data.strip()
             device.port = form.port.data or 22
             device.vendor = form.vendor.data
-            device.username = form.username.data.strip()
-            if form.password.data:
-                device.password_enc = encrypt(form.password.data)
-            if form.enable_password.data:
-                device.enable_password_enc = encrypt(form.enable_password.data)
+            device.credential_id = form.credential_id.data
             device.backup_command = (form.backup_command.data or '').strip() or None
             device.description = (form.description.data or '').strip()
             device.group_id = form.group_id.data or None
@@ -177,8 +179,12 @@ def versions(device_id):
 def test_connection(device_id):
     device = Device.query.get_or_404(device_id)
     timeout = get_netmiko_timeout()
-    password = safe_decrypt(device.password_enc)
-    enable_pw = safe_decrypt(device.enable_password_enc) if device.enable_password_enc else ''
+    if device.credential is None:
+        return jsonify(ok=False, message='設備未綁定驗證'), 400
+    cred = device.credential
+    username = cred.username
+    password = safe_decrypt(cred.password_enc)
+    enable_pw = safe_decrypt(cred.enable_password_enc) if cred.enable_password_enc else ''
 
     try:
         from netmiko import ConnectHandler
@@ -191,7 +197,7 @@ def test_connection(device_id):
         'device_type': device.vendor,
         'host': device.ip_address,
         'port': device.port,
-        'username': device.username,
+        'username': username,
         'password': password,
         'conn_timeout': timeout,
         'fast_cli': False,

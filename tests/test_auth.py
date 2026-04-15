@@ -3,14 +3,14 @@
 
 def test_first_visit_redirects_to_setup(client):
     """無任何使用者時，/login 應導向 /setup。"""
-    resp = client.get('/config-manager/auth/login', follow_redirects=False)
+    resp = client.get('/it-manager/auth/login', follow_redirects=False)
     assert resp.status_code == 302
     assert '/auth/setup' in resp.location
 
 
 def test_setup_creates_admin_and_logs_in(client, db):
     from app.models import User
-    resp = client.post('/config-manager/auth/setup', data={
+    resp = client.post('/it-manager/auth/setup', data={
         'username': 'owner',
         'email': 'owner@example.com',
         'password': 'owner-secret-1',
@@ -25,7 +25,7 @@ def test_setup_creates_admin_and_logs_in(client, db):
 
 def test_setup_rejects_when_user_exists(client, admin_user):
     """已有使用者時 /setup 應重導 /login。"""
-    resp = client.get('/config-manager/auth/setup', follow_redirects=False)
+    resp = client.get('/it-manager/auth/setup', follow_redirects=False)
     assert resp.status_code == 302
     assert '/auth/login' in resp.location
 
@@ -46,7 +46,7 @@ def test_login_failure_flashes(client, admin_user, login):
 
 
 def test_logout(client, logged_in_admin):
-    resp = client.get('/config-manager/auth/logout', follow_redirects=False)
+    resp = client.get('/it-manager/auth/logout', follow_redirects=False)
     assert resp.status_code == 302
     assert '/auth/login' in resp.location
 

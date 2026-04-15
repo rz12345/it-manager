@@ -2,6 +2,120 @@
 
 <!-- 格式：## YYYY-MM-DD，底下依分類列出完成項目 -->
 
+## 2026-04-15（紀錄頁分頁統一 + 驗證庫併入設定頁）
+
+### 紀錄（Logs）路由統一為 `logs.index?tab={backup|email|user}`
+- 仿 `assets.index` 單一派發模式：`logs.index` 依 `tab` 切換備份歷史 / Email 寄送 / 使用者紀錄
+- 新增 `app/templates/_log_tabs.html` 共用分頁 nav
+- 新增 `app/templates/logs/backup_runs.html`（從舊 `backups/list.html` 搬過來並改用共用 tabs）
+- `logs/email_runs.html` 與 `logs/user_activity.html` 改 `{% include '_log_tabs.html' %}`，篩選表單與分頁連結補 `tab=` 參數
+- 舊路由（`backups.index`、`logs.email_runs`、`logs.user_activity`）改為 302 redirect，保留向後相容並保留 query string
+- 刪除 `app/templates/backups/list.html`
+- `backups/routes.py` 移除原 `_visible_runs_query` 與列表邏輯（搬到 `logs/routes.py`），僅留主機／設備歷史、單檔下載 / 檢視 / 刪除
+- 更新外部連結：`base.html`（側欄 `紀錄` 指向 `logs.index`）、`dashboard/index.html`（「最近備份」/「最近 email」`全部»`）、`tasks/detail.html`、`email_tasks/detail.html`（「查看紀錄」帶 `task_id`）
+
+### 驗證庫併入設定頁 tab：`/settings/?tab=credentials`
+- 抽出 `app/templates/_settings_tabs.html` 共用 nav（`settings/edit.html` 與 credentials 頁共用）
+- `settings.index` 增加 `tab='credentials'` 分支：delegate 到 `app.credentials.routes._render_list()`（從原 `index()` 抽出資料查詢邏輯）
+- `credentials.index` 改為 302 redirect 至 `settings.index?tab=credentials`（保留舊 URL 向後相容）
+- `credentials/index.html`：改以「系統設定」為頁首，`{% with active_tab='credentials' %}{% include '_settings_tabs.html' %}{% endwith %}`
+- 更新所有 `url_for('credentials.index')`：`credentials/routes.py` 內部 redirect、`credentials/form.html` 返回鈕、`hosts/form.html` 與 `devices/form.html` 的「管理驗證庫」連結，全面改為 `url_for('settings.index', tab='credentials')`
+
+---
+
+## 2026-04-15（資產列表即時過濾 + 序號欄）
+
+五個資產列表頁（Linux 主機 / 網路設備 / 主機類型模板 / 郵件模板 / 爬蟲）新增快速檢索與序號顯示。
+
+### 共用工具
+- `app/static/js/main.js`：新增 `CM.initTableFilter(input, table, {emptyText})`；依 tr textContent 不分大小寫過濾，全隱藏時附加「查無符合項目」列
+
+### 模板改動
+- `templates/assets/index.html`（hosts / devices / host templates 三分頁）、`templates/scrapers/list.html`、`templates/templates_mgr/list.html`：
+  - 各自加上搜尋 input group（`#asset-filter-input` + `#asset-filter-table`）
+  - 表頭新增首欄「#」；無分頁頁面用 `loop.index`，分頁頁面用 `(page-1) * per_page + loop.index` 讓序號跨頁連續
+  - 空狀態 `colspan` 同步 +1
+
+### Bug 修復
+- 初始化 `<script>` 原本放在 `{% block content %}` 內，早於 `base.html` 底部的 `main.js` 執行，導致 `window.CM` 未定義、過濾器未綁定。改放到 `{% block scripts %}`（渲染於 main.js 之後）後即可動態過濾
+
+---
+
+## 2026-04-15（驗證庫 Credential Library）
+
+新增 Admin 限定的「驗證庫」：集中管理可復用的 SSH / 設備帳密，Host / Device 強制引用單一 Credential。
+
+### Models（`app/models.py`）
+- 新增 `Credential`（name / username / password_enc / enable_password_enc / description）
+- `Host` / `Device` 移除 `username` / `password_enc`（Device 另移除 `enable_password_enc`），改以 `credential_id` (FK, NOT NULL) 關聯
+
+### 新增 blueprint
+- `app/credentials/`（`/credentials`）：列表 / 新增 / 編輯 / 刪除；全部 `@admin_required`；被引用時拒絕刪除並顯示引用數
+- Templates：`app/templates/credentials/index.html`、`form.html`
+- 設定頁 nav 加上「驗證庫」連結（參考 groups 同一個 nav 列）
+
+### Host / Device 整合
+- `forms.py`：移除 username / password / enable_password 欄位，改 `credential_id = SelectField(DataRequired)`
+- `routes.py`：create / edit / test-connection 全面改經 credential；未綁定回傳 400
+- `templates/hosts/form.html`、`devices/form.html`：改為 Credential 下拉 + 「管理驗證庫」外連
+- `hosts/detail.html`、`devices/detail.html`、`assets/index.html`：顯示 `credential.username@ip:port`
+
+### Scheduler
+- `scheduler/ssh_backup.py`、`scheduler/netmiko_backup.py`：讀 `host.credential.*` / `device.credential.*`；未綁定驗證直接標記 run failed
+
+### Migration
+- `migrations/versions/a1c0d11a_add_credential_library.py`：三段式
+  1. 建 `credentials` 表、`hosts` / `devices` 加上 nullable `credential_id` + FK
+  2. 歷史資料以 `(username, password_enc, enable_password_enc)` 去重歸併為 Credential（自動命名 `{username}@auto-{N}`），回填 FK
+  3. `credential_id` 改 NOT NULL、drop 舊 username / password_enc / enable_password_enc
+- Downgrade 反向執行（複製帳密回 Host / Device 後 drop 表）
+
+### 舊資料匯入
+- `scripts/migrate_legacy.py`：先 `_get_or_create_credential` upsert，再把 FK 寫入 Host / Device
+
+---
+
+## 2026-04-15（config-manager + task-manager 整合為 it-manager）
+
+一次性合併 `Y:/config-manager` 與 `Y:/task-manager` 兩專案至統一的 `Y:/it-manager`，共用 SQLite DB、使用者、權限、通知、排程引擎。
+
+### Models（`app/models.py`）
+- 以 SQLAlchemy **single-table inheritance** 統一 `Task` / `TaskRun`：`polymorphic_on='type'`，子類 `BackupTask` / `EmailTask` / `BackupRun` / `EmailRun` 自動依 `type` 過濾，最小化 call-site 改動
+- `TaskAlert`（原 `BackupAlert`，保留 alias）泛化支援兩種任務型別
+- 原 `task-manager` 的 `Template` 改名為 `EmailTemplate`（避開 Jinja 衝突）
+- 新增 `Task.group_id` 讓 email 任務也納入 groups 權限；`Task.template_vars` JSON 欄位
+
+### 新增 blueprint
+- `app/email_tasks/`（`/email-tasks`）：Email 任務 CRUD + test-send + toggle；權限：admin / owner / group 成員
+- `app/templates_mgr/`（`/templates`）：郵件模板 CRUD + 附件上傳 + 預覽（Jinja2 + 爬蟲變數注入）
+- `app/scrapers/`（`/scrapers`）：Web 爬蟲 CRUD + 手動測試
+- `app/logs/` 新增 `/email-runs` 列表
+
+### Scheduler（`scheduler/`）
+- `runner.py` 改為依 `task.type` 分派：backup 走 `ThreadPoolExecutor`，email 在主執行緒（Playwright 非 thread-safe）
+- orphan `TaskRun` 清理涵蓋兩型別
+- 新增 `mailer.py`（SMTP + MIMEMultipart + 重試）、`scraper.py`（Playwright + BS4 + regex + JS）、`email_task.py`（email 任務執行入口）
+- `notifier.notify_task_failure(run, name, task_type)` 分派器
+
+### Settings
+- `settings_store.DYNAMIC_KEYS` 新增 `TEST_EMAIL`
+- 通知 tab 新增「測試收件者 Email」欄位（email test-send 使用）
+
+### 導覽列
+- 「任務」改為 dropdown：備份任務 / Email 任務 / 郵件模板 / 爬蟲
+
+### Migrations
+- 清空舊 migrations，`flask db migrate` 重新產生初始版本 `415065744b20_initial_unified_schema_it_manager`（24 張資料表）
+
+### 資料遷移（`scripts/migrate_legacy.py`）
+- 讀 `backups/legacy/{config_manager,mail_scheduler}.db`，以 id-remap 方式寫入新 schema
+- config-manager 在 username / app_setting key 衝突時勝出
+- 支援 `--dry-run` / `--force`；DATETIME / JSON 欄位自動解析
+- 實際匯入：1 user / 1 group / 3 hosts / 8 devices / 2 backup_tasks / 33 backup_runs / 90 backup_records / 6 alerts / 4 email_templates / 4 attachments / 2 scrapers / 2 email_tasks / 21 login_logs
+
+### requirements.txt
+- 併入 `playwright==1.49.0` / `beautifulsoup4==4.12.3` / `lxml==5.2.1`
+
 ## 2026-04-14（差異比較渲染修正）
 
 ### `app/compare/routes.py::view`
@@ -140,7 +254,7 @@
 - 模板 `app/templates/assets/index.html` 合併三張列表（原 hosts/list、devices/list、templates_list），含各自的「新增」按鈕
 - 既有 CRUD 路由（`hosts.create/edit/delete/detail`、`devices.*`、`hosts.templates_*`）維持不變；儲存或刪除後一律 redirect 至 `assets.index` 對應 tab
 - 移除 `hosts.index` / `devices.index` / `hosts.templates_index` 三個 list 路由與對應模板；`hosts/routes.py` 與 `devices/routes.py` 的 `_visible_*_query` helper 改搬至 `assets/routes.py`
-- Test：`test_hosts.py::test_index_requires_login` 改指向 `/config-manager/assets/`
+- Test：`test_hosts.py::test_index_requires_login` 改指向 `/it-manager/assets/`
 
 ## 2026-04-14（備份任務 — 多目標排程重構）
 
@@ -177,11 +291,11 @@
 ### docs/Deploy.md（12 章節）
 
 - 系統需求（Ubuntu 22.04/24.04 + Python 3.12+）
-- Git clone → `/opt/config-manager`、venv 建立、`pip install -r requirements.txt`
+- Git clone → `/opt/it-manager`、venv 建立、`pip install -r requirements.txt`
 - `.env` 設定（`SECRET_KEY` 以 `secrets.token_hex(32)`、`CRYPTO_KEY` 以 `Fernet.generate_key()`），並警示金鑰不可換
 - `flask db upgrade` + `flask hosts seed-templates` 初始化
 - systemd unit（gunicorn 3 workers，bind `127.0.0.1:8017`，access/error log 落在 `data/`）
-- nginx `location /config-manager/` 反向代理範例（帶 `X-Forwarded-Prefix`）
+- nginx `location /it-manager/` 反向代理範例（帶 `X-Forwarded-Prefix`）
 - Cron 安裝步驟（`sudo crontab -u www-data -e` 以與 systemd 服務同權限執行 `python -m scheduler.runner`）
 - Web UI 系統設定頁面用途說明（SMTP、逾時、密碼政策）
 - 升級流程：`git pull` → `pip install` → `flask db upgrade` → `systemctl restart`
@@ -514,7 +628,7 @@
 - 在 `app/__init__.py` `create_app()` 內 `from app import models`，讓 Alembic autogenerate 能掃描到 metadata
 - 執行 `flask db init` 建立 `migrations/` 目錄
 - 執行 `flask db migrate -m "initial schema"` 產生 `migrations/versions/86aacfb3da11_initial_schema.py`（13 張表 + 所有索引）
-- 執行 `flask db upgrade` 於 `data/config_manager.db` 建立所有表
+- 執行 `flask db upgrade` 於 `data/sqlite.db` 建立所有表
 - 修正 `.env`：移除相對路徑的 `DATABASE_URL`（改用 `config.py` 內 `__file__` 計算的絕對路徑，避免 Flask-Migrate 執行時 CWD 偏移）
 
 ### 環境補強
@@ -538,12 +652,12 @@
 ### Flask 應用核心
 
 - 建立 `run.py`（`app.run(host='0.0.0.0', debug=True)`）
-- 建立 `app/config.py`：從 .env 載入設定，含 `APPLICATION_ROOT='/config-manager'`、`CRYPTO_KEY`、`BACKUP_BASE_PATH`、`DISPLAY_TZ`，DATABASE_URL 使用絕對路徑計算（解決 Alembic env.py CWD 問題）
+- 建立 `app/config.py`：從 .env 載入設定，含 `APPLICATION_ROOT='/it-manager'`、`CRYPTO_KEY`、`BACKUP_BASE_PATH`、`DISPLAY_TZ`，DATABASE_URL 使用絕對路徑計算（解決 Alembic env.py CWD 問題）
 - 建立 `app/__init__.py`（`create_app()` 工廠函式）：
   - 初始化 db / login_manager / migrate / csrf
   - `ProxyFix` 處理 nginx reverse proxy headers
   - 自動建立 `data/`、`backups/hosts/`、`backups/devices/` 目錄
-  - 註冊 8 個 Blueprint，統一 `url_prefix=/config-manager/{name}`
+  - 註冊 8 個 Blueprint，統一 `url_prefix=/it-manager/{name}`
   - `before_request` 守衛：無使用者或 DB 未初始化時導向 `/auth/setup`
   - `/` 根路由重導至 `dashboard.index`
   - 全域 `localtime` template filter（UTC → `Asia/Taipei`）

@@ -1,36 +1,11 @@
 {% extends 'base.html' %}
-{% block title %}系統設定 — Config Manager{% endblock %}
+{% block title %}系統設定 — IT Manager{% endblock %}
 {% block content %}
 <div class="d-flex align-items-center mb-4">
     <h3 class="mb-0"><i class="bi bi-gear me-2"></i>系統設定</h3>
 </div>
 
-<ul class="nav nav-tabs mb-4">
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'notify' %}active{% endif %}"
-           href="{{ url_for('settings.index', tab='notify') }}">
-            <i class="bi bi-envelope-at me-1"></i>通知
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'connection' %}active{% endif %}"
-           href="{{ url_for('settings.index', tab='connection') }}">
-            <i class="bi bi-stopwatch me-1"></i>連線
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'users' %}active{% endif %}"
-           href="{{ url_for('settings.index', tab='users') }}">
-            <i class="bi bi-person me-1"></i>帳號
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'groups' %}active{% endif %}"
-           href="{{ url_for('settings.index', tab='groups') }}">
-            <i class="bi bi-people me-1"></i>分組
-        </a>
-    </li>
-</ul>
+{% include '_settings_tabs.html' %}
 
 {# ══════════════════════════════════════════════ 通知 tab ══ #}
 {% if active_tab == 'notify' %}
@@ -68,6 +43,11 @@
                 <div class="col-md-6">
                     {{ notify_form.NOTIFY_EMAIL.label(class='form-label') }}
                     {{ notify_form.NOTIFY_EMAIL(class='form-control', placeholder='admin@example.com') }}
+                </div>
+                <div class="col-md-6">
+                    {{ notify_form.TEST_EMAIL.label(class='form-label') }}
+                    {{ notify_form.TEST_EMAIL(class='form-control', placeholder='tester@example.com') }}
+                    <div class="form-text">Email 任務「測試寄送」按鈕會將信寄至此地址</div>
                 </div>
             </div>
         </div>
@@ -122,6 +102,100 @@
         {{ timeout_form.submit(class='btn btn-primary') }}
     </div>
 </form>
+
+{# ══════════════════════════════════════════════ 標籤 tab ══ #}
+{% elif active_tab == 'tags' %}
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white fw-semibold d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-tags me-1"></i>標籤管理</span>
+        {% if tags %}<span class="badge bg-secondary fw-normal">{{ tags | length }}</span>{% endif %}
+    </div>
+    {% if tags %}
+    <div class="py-1">
+        {% for tag in tags %}
+        {% set usage = tag_usage[tag.id] %}
+        <div class="tag-row-wrapper" id="tag-wrapper-{{ tag.id }}">
+            <div class="tag-row" onclick="openTagEdit({{ tag.id }})">
+                <span class="tag-dot tag-dot-{{ tag.color }}"></span>
+                <span class="tag-row-name">{{ tag.name }}</span>
+                <span class="tag-row-usage">
+                    <i class="bi bi-send" title="任務"></i> {{ usage[0] }}
+                    <i class="bi bi-file-earmark-text ms-1" title="模板"></i> {{ usage[1] }}
+                    <i class="bi bi-robot ms-1" title="爬蟲"></i> {{ usage[2] }}
+                </span>
+                <div class="tag-row-actions">
+                    <button type="button" class="tag-action-btn" title="編輯"
+                            onclick="event.stopPropagation(); openTagEdit({{ tag.id }})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <form method="post" action="{{ url_for('settings.delete_tag', tag_id=tag.id) }}"
+                          id="delete-tag-{{ tag.id }}" style="display:contents;"
+                          onsubmit="return confirm('確定刪除標籤「{{ tag.name }}」？');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="tag-action-btn" title="刪除"
+                                onclick="event.stopPropagation();">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="tag-edit-panel">
+                <form method="post" action="{{ url_for('settings.update_tag_color', tag_id=tag.id) }}"
+                      id="color-form-{{ tag.id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="tag-color-grid">
+                        {% for color in ['gray','brown','orange','yellow','green','blue','purple','pink','red'] %}
+                        <div class="tag-color-opt">
+                            <input type="radio" name="color" value="{{ color }}"
+                                   id="color-{{ tag.id }}-{{ color }}"
+                                   {% if tag.color == color %}checked{% endif %}
+                                   onchange="document.getElementById('color-form-{{ tag.id }}').submit()">
+                            <label for="color-{{ tag.id }}-{{ color }}">
+                                <span class="tag-dot tag-dot-{{ color }}"></span>
+                                {{ {'gray':'灰','brown':'棕','orange':'橙','yellow':'黃','green':'綠',
+                                    'blue':'藍','purple':'紫','pink':'粉','red':'紅'}[color] }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </form>
+
+                <form method="post" action="{{ url_for('settings.rename_tag', tag_id=tag.id) }}"
+                      id="rename-form-{{ tag.id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" name="name" class="tag-rename-input"
+                           value="{{ tag.name }}" maxlength="50" placeholder="標籤名稱">
+                    <div class="tag-edit-actions mt-2">
+                        <button type="submit" class="tag-edit-btn-confirm">
+                            <i class="bi bi-check-lg me-1"></i>套用
+                        </button>
+                        <button type="button" class="tag-edit-btn-cancel"
+                                onclick="closeTagEdit({{ tag.id }})">取消</button>
+                    </div>
+                </form>
+
+                <form method="post" action="{{ url_for('settings.delete_tag', tag_id=tag.id) }}"
+                      id="delete-tag-edit-{{ tag.id }}"
+                      onsubmit="return confirm('確定刪除標籤「{{ tag.name }}」？');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="tag-edit-btn-delete w-100">
+                        <i class="bi bi-trash me-1"></i>刪除標籤
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-tags fs-2 d-block mb-2 opacity-50"></i>
+        <div class="small">尚無標籤</div>
+        <div class="small mt-1 opacity-75">在任務、模板或爬蟲編輯頁新增標籤後會顯示於此</div>
+    </div>
+    {% endif %}
+</div>
 
 {# ══════════════════════════════════════════════ 帳號 tab ══ #}
 {% elif active_tab == 'users' %}
@@ -409,6 +483,39 @@
 {% endblock %}
 
 {% block scripts %}
+{% if active_tab == 'tags' %}
+<script>
+function openTagEdit(tagId) {
+    document.querySelectorAll('.tag-row-wrapper.is-editing').forEach(function(el) {
+        el.classList.remove('is-editing');
+    });
+    var wrapper = document.getElementById('tag-wrapper-' + tagId);
+    if (wrapper) {
+        wrapper.classList.add('is-editing');
+        var input = wrapper.querySelector('.tag-rename-input');
+        if (input) { input.focus(); input.select(); }
+    }
+}
+function closeTagEdit(tagId) {
+    var wrapper = document.getElementById('tag-wrapper-' + tagId);
+    if (wrapper) wrapper.classList.remove('is-editing');
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.tag-row-wrapper')) {
+        document.querySelectorAll('.tag-row-wrapper.is-editing').forEach(function(el) {
+            el.classList.remove('is-editing');
+        });
+    }
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.tag-row-wrapper.is-editing').forEach(function(el) {
+            el.classList.remove('is-editing');
+        });
+    }
+});
+</script>
+{% endif %}
 {% if active_tab == 'users' %}
 <script>
 var _editUserBase = "{{ url_for('settings.edit_user', user_id=0) }}".replace('/0/edit', '');

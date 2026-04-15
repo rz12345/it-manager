@@ -1,14 +1,37 @@
 {% extends 'base.html' %}
-{% block title %}備份任務 — Config Manager{% endblock %}
+{% block title %}備份任務 — IT Manager{% endblock %}
 {% block content %}
 <div class="d-flex align-items-center mb-4">
-    <h3 class="mb-0"><i class="bi bi-list-task me-2"></i>備份任務</h3>
+    <h3 class="mb-0"><i class="bi bi-list-task me-2"></i>任務</h3>
     <div class="ms-auto">
         {% if current_user.is_admin %}
         <a href="{{ url_for('tasks.create') }}" class="btn btn-primary btn-sm">
-            <i class="bi bi-plus-lg"></i> 新增任務
+            <i class="bi bi-plus-lg"></i> 新增備份任務
         </a>
         {% endif %}
+    </div>
+</div>
+
+{% with active_task_tab = 'backup' %}{% include '_task_tabs.html' %}{% endwith %}
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="stat-card">
+            <div class="stat-value text-primary">{{ summary.active }}</div>
+            <div class="stat-label"><i class="bi bi-toggle-on me-1"></i>啟用中任務</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="stat-card">
+            <div class="stat-value text-success">{{ summary.success_week }}</div>
+            <div class="stat-label"><i class="bi bi-check-circle me-1"></i>本週成功次數</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="stat-card">
+            <div class="stat-value {% if summary.failed_week %}text-danger{% else %}text-muted{% endif %}">{{ summary.failed_week }}</div>
+            <div class="stat-label"><i class="bi bi-exclamation-circle me-1"></i>本週失敗次數</div>
+        </div>
     </div>
 </div>
 

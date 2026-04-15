@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+{% block title %}編輯模板{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2><i class="bi bi-pencil-square me-2 text-primary"></i>編輯模板：{{ tmpl.name }}</h2>
+  <a href="{{ url_for('templates_mgr.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>返回
+  </a>
+</div>
+
+<div class="row g-4 align-items-start">
+
+  {# ── 左欄：表單 ── #}
+  <div class="col-md-8">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% include 'templates_mgr/_form.html' %}
+
+      <hr class="my-4">
+
+      {# ── 附件區塊 ── #}
+      <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-paperclip me-2"></i>附件</div>
+        <div class="card-body">
+          <ul class="list-group list-group-flush mb-3" id="att-list">
+            {% for att in tmpl.attachments %}
+            <li class="list-group-item d-flex justify-content-between align-items-center px-0"
+                id="att-{{ att.id }}">
+              <span>
+                <i class="bi bi-file-earmark me-2 text-muted"></i>
+                <a href="{{ url_for('templates_mgr.download_attachment', tmpl_id=tmpl.id, att_id=att.id) }}" target="_blank">{{ att.filename }}</a>
+              </span>
+              <span class="d-flex align-items-center gap-2">
+                <span class="text-muted small">{{ (att.file_size / 1024) | round(1) }} KB</span>
+                <button class="btn btn-sm btn-outline-danger" type="button"
+                        onclick="confirmDeleteAttachment({{ att.id }})">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </span>
+            </li>
+            {% endfor %}
+          </ul>
+
+          <label class="drop-zone w-100" id="drop-zone-label">
+            <i class="bi bi-cloud-upload fs-4 d-block mb-1"></i>
+            <span class="small">點擊或拖曳檔案至此上傳</span>
+            <input type="file" id="att-input" multiple accept=".pdf,.xlsx,.docx,.csv,.png,.jpg"
+                   onchange="uploadAttachments()">
+          </label>
+          <div class="form-text mt-1">允許格式：pdf, xlsx, docx, csv, png, jpg（單檔上限 10MB）</div>
+          <div id="att-feedback" class="mt-1 small"></div>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-lg me-1"></i>儲存變更
+        </button>
+        <a href="{{ url_for('templates_mgr.index') }}" class="btn btn-outline-secondary">取消</a>
+      </div>
+    </form>
+  </div>
+
+  {# ── 右欄：變數說明 ── #}
+  {% include 'templates_mgr/_var_reference.html' %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="{{ url_for('static', filename='js/template_editor.js') }}"></script>
+<script>
+const UPLOAD_URL = "{{ url_for('templates_mgr.upload_attachment', tmpl_id=tmpl.id) }}";
+const DELETE_BASE = "{{ url_for('templates_mgr.delete_attachment', tmpl_id=tmpl.id, att_id=0) }}".replace('/0/delete', '/');
+const DOWNLOAD_BASE = "{{ url_for('templates_mgr.download_attachment', tmpl_id=tmpl.id, att_id=0) }}".replace('/0/download', '/');
+const CSRF = "{{ csrf_token() }}";
+
+// Drop zone drag styling
+var dz = document.getElementById('drop-zone-label');
+if (dz) {
+  ['dragover', 'dragenter'].forEach(function(e) {
+    dz.addEventListener(e, function(ev) { ev.preventDefault(); dz.classList.add('dragover'); });
+  });
+  ['dragleave', 'drop'].forEach(function(e) {
+    dz.addEventListener(e, function(ev) { dz.classList.remove('dragover'); });
+  });
+  dz.addEventListener('drop', function(ev) {
+    ev.preventDefault();
+    var input = document.getElementById('att-input');
+    input.files = ev.dataTransfer.files;
+    uploadAttachments();
+  });
+}
+
+function buildAttRow(att) {
+  const li = document.createElement('li');
+  li.id = `att-${att.id}`;
+  li.className = 'list-group-item d-flex justify-content-between align-items-center px-0';
+  li.innerHTML =
+    `<span><i class="bi bi-file-earmark me-2 text-muted"></i><a href="${DOWNLOAD_BASE}${att.id}/download" target="_blank">${att.filename}</a></span>` +
+    `<span class="d-flex align-items-center gap-2">` +
+      `<span class="text-muted small">${(att.file_size / 1024).toFixed(1)} KB</span>` +
+      `<button class="btn btn-sm btn-outline-danger" type="button" onclick="confirmDeleteAttachment(${att.id})"><i class="bi bi-trash"></i></button>` +
+    `</span>`;
+  return li;
+}
+
+async function uploadAttachments() {
+  const input = document.getElementById('att-input');
+  const feedback = document.getElementById('att-feedback');
+  if (!input.files.length) return;
+  const fd = new FormData();
+  for (const f of input.files) fd.append('attachments', f);
+  feedback.textContent = '上傳中…';
+  feedback.className = 'mt-1 small text-muted';
+  try {
+    const r = await fetch(UPLOAD_URL, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF },
+      body: fd,
+    });
+    const data = await r.json();
+    if (data.ok) {
+      const list = document.getElementById('att-list');
+      data.attachments.forEach(att => list.appendChild(buildAttRow(att)));
+      input.value = '';
+      feedback.textContent = '上傳成功';
+      feedback.className = 'mt-1 small text-success';
+    } else {
+      feedback.textContent = data.error || '上傳失敗';
+      feedback.className = 'mt-1 small text-danger';
+    }
+  } catch {
+    feedback.textContent = '網路錯誤，請再試一次';
+    feedback.className = 'mt-1 small text-danger';
+  }
+}
+
+function confirmDeleteAttachment(attId) {
+  showConfirmModal('刪除附件', '確定刪除此附件？', function () {
+    deleteAttachment(attId);
+  });
+}
+
+async function deleteAttachment(attId) {
+  const feedback = document.getElementById('att-feedback');
+  try {
+    const r = await fetch(`${DELETE_BASE}${attId}/delete`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF },
+    });
+    const data = await r.json();
+    if (data.ok) {
+      document.getElementById(`att-${attId}`)?.remove();
+      feedback.textContent = '附件已刪除';
+      feedback.className = 'mt-1 small text-success';
+    } else {
+      feedback.textContent = data.error || '刪除失敗';
+      feedback.className = 'mt-1 small text-danger';
+    }
+  } catch {
+    feedback.textContent = '網路錯誤，請再試一次';
+    feedback.className = 'mt-1 small text-danger';
+  }
+}
+</script>
+{% endblock %}

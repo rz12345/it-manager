@@ -14,7 +14,7 @@ login_manager = LoginManager()
 migrate = Migrate()
 csrf = CSRFProtect()
 
-_URL_PREFIX = '/config-manager'
+_URL_PREFIX = '/it-manager'
 
 
 def create_app(config=None):
@@ -75,14 +75,26 @@ def create_app(config=None):
     from app.tasks import bp as tasks_bp
     app.register_blueprint(tasks_bp, url_prefix=f'{_URL_PREFIX}/tasks')
 
+    from app.email_tasks import bp as email_tasks_bp
+    app.register_blueprint(email_tasks_bp, url_prefix=f'{_URL_PREFIX}/email-tasks')
+
     from app.compare import bp as compare_bp
     app.register_blueprint(compare_bp, url_prefix=f'{_URL_PREFIX}/compare')
 
     from app.settings import bp as settings_bp
     app.register_blueprint(settings_bp, url_prefix=f'{_URL_PREFIX}/settings')
 
+    from app.credentials import bp as credentials_bp
+    app.register_blueprint(credentials_bp, url_prefix=f'{_URL_PREFIX}/credentials')
+
     from app.logs import bp as logs_bp
     app.register_blueprint(logs_bp, url_prefix=f'{_URL_PREFIX}/logs')
+
+    from app.templates_mgr import bp as templates_mgr_bp
+    app.register_blueprint(templates_mgr_bp, url_prefix=f'{_URL_PREFIX}/templates')
+
+    from app.scrapers import bp as scrapers_bp
+    app.register_blueprint(scrapers_bp, url_prefix=f'{_URL_PREFIX}/scrapers')
 
     @app.before_request
     def redirect_to_setup():

@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}新增模板{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2><i class="bi bi-plus-circle me-2 text-primary"></i>新增郵件模板</h2>
+  <a href="{{ url_for('templates_mgr.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>返回
+  </a>
+</div>
+<div class="row g-4 align-items-start">
+
+  {# ── 左欄：表單 ── #}
+  <div class="col-md-8">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% include 'templates_mgr/_form.html' %}
+
+      <hr class="my-4">
+
+      <div class="card mb-4">
+        <div class="card-header"><i class="bi bi-paperclip me-2"></i>附件（建立後可繼續新增）</div>
+        <div class="card-body">
+          <input type="file" name="attachments" id="att-input" class="form-control"
+                 multiple accept=".pdf,.xlsx,.docx,.csv,.png,.jpg">
+          <div class="form-text mt-1">允許格式：pdf, xlsx, docx, csv, png, jpg（單檔上限 10MB）</div>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-lg me-1"></i>建立模板
+        </button>
+        <a href="{{ url_for('templates_mgr.index') }}" class="btn btn-outline-secondary">取消</a>
+      </div>
+    </form>
+  </div>
+
+  {# ── 右欄：變數說明 ── #}
+  {% include 'templates_mgr/_var_reference.html' %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js" referrerpolicy="origin"></script>
+<script src="{{ url_for('static', filename='js/template_editor.js') }}"></script>
+{% endblock %}

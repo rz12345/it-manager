@@ -1,4 +1,4 @@
-/* Config Manager — 共用樣式 */
+/* IT Manager — 共用樣式 */
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC",
@@ -55,3 +55,199 @@ code {
 .d2h-file-header {
     background: #f8f9fa;
 }
+
+/* ── 標籤 chip — 用於列表頁與篩選列 ── */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: filter .15s;
+}
+.tag-chip:hover { filter: brightness(0.95); }
+
+.tag-gray   { background: #e3e2e0; color: #787774; }
+.tag-brown  { background: #eee0da; color: #9f6b53; }
+.tag-orange { background: #fadec9; color: #d9730d; }
+.tag-yellow { background: #fdecc8; color: #cb912f; }
+.tag-green  { background: #dbeddb; color: #448361; }
+.tag-blue   { background: #d3e5ef; color: #337ea9; }
+.tag-purple { background: #e8deee; color: #9065b0; }
+.tag-pink   { background: #f5e0e9; color: #c14f8a; }
+.tag-red    { background: #ffe2dd; color: #d44c47; }
+
+/* ── Tag color dots ── */
+.tag-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.tag-dot-gray   { background: #787774; }
+.tag-dot-brown  { background: #9f6b53; }
+.tag-dot-orange { background: #d9730d; }
+.tag-dot-yellow { background: #cb912f; }
+.tag-dot-green  { background: #448361; }
+.tag-dot-blue   { background: #337ea9; }
+.tag-dot-purple { background: #9065b0; }
+.tag-dot-pink   { background: #c14f8a; }
+.tag-dot-red    { background: #d44c47; }
+
+/* ── Settings panel tag rows ── */
+.tag-row-wrapper { border-bottom: 1px solid #f0f0ef; }
+.tag-row-wrapper:last-child { border-bottom: none; }
+
+.tag-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  min-height: 40px;
+  cursor: pointer;
+}
+.tag-row:hover { background: #f7f7f5; }
+
+.tag-row-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+  flex-shrink: 0;
+}
+.tag-row:hover .tag-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tag-row-name {
+  font-size: 0.875rem;
+  color: #37352f;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tag-row-usage {
+  font-size: 0.73rem;
+  color: #9b9a97;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tag-action-btn {
+  background: none;
+  border: none;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: #9b9a97;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 0.8rem;
+}
+.tag-action-btn:hover {
+  background: #eeeeed;
+  color: #37352f;
+}
+
+.tag-edit-panel {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 14px 14px;
+  background: #fafaf9;
+  border-top: 1px solid #f0f0ef;
+}
+.tag-row-wrapper.is-editing .tag-edit-panel { display: flex; }
+.tag-row-wrapper.is-editing .tag-row        { display: none; }
+
+.tag-color-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.tag-color-opt { position: relative; }
+.tag-color-opt input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.tag-color-opt label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: #37352f;
+  border: 2px solid transparent;
+  transition: border-color .1s, background .1s;
+}
+.tag-color-opt input[type="radio"]:checked + label {
+  border-color: #37352f;
+}
+.tag-color-opt label:hover { background: #eeeeed; }
+
+.tag-rename-input {
+  width: 100%;
+  border: 1px solid #e0e0de;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 0.875rem;
+  outline: none;
+  background: #fff;
+  box-sizing: border-box;
+}
+.tag-rename-input:focus {
+  border-color: #a8a8a5;
+  box-shadow: 0 0 0 2px rgba(55,53,47,.08);
+}
+
+.tag-edit-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.tag-edit-btn-confirm {
+  flex: 1;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  background: #37352f;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+.tag-edit-btn-confirm:hover { background: #1a1915; }
+.tag-edit-btn-cancel {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  background: #f0f0ef;
+  color: #37352f;
+  border: none;
+  cursor: pointer;
+}
+.tag-edit-btn-cancel:hover { background: #e0e0de; }
+.tag-edit-btn-delete {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  background: none;
+  color: #d44c47;
+  border: 1px solid #d44c47;
+  cursor: pointer;
+  margin-left: auto;
+}
+.tag-edit-btn-delete:hover { background: #ffe2dd; }

@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ '編輯' if mode == 'edit' else '新增' }}主機 — Config Manager{% endblock %}
+{% block title %}{{ '編輯' if mode == 'edit' else '新增' }}主機 — IT Manager{% endblock %}
 {% block content %}
 <div class="mx-auto" style="max-width: 760px;">
     <div class="d-flex align-items-center mb-4">
@@ -45,21 +45,14 @@
                         {% endfor %}
                     </div>
 
-                    <div class="col-md-6">
-                        {{ form.username.label(class='form-label') }}
-                        {{ form.username(class='form-control') }}
-                        {% for err in form.username.errors %}
-                            <div class="text-danger small">{{ err }}</div>
-                        {% endfor %}
-                    </div>
-                    <div class="col-md-6">
-                        {{ form.password.label(class='form-label') }}
-                        {{ form.password(class='form-control', autocomplete='new-password',
-                                         placeholder='編輯時留白保留原密碼' if mode == 'edit' else '') }}
-                        {% if form.password.description %}
-                            <div class="form-text">{{ form.password.description }}</div>
-                        {% endif %}
-                        {% for err in form.password.errors %}
+                    <div class="col-12">
+                        {{ form.credential_id.label(class='form-label') }}
+                        {{ form.credential_id(class='form-select') }}
+                        <div class="form-text">
+                            {{ form.credential_id.description }}
+                            <a href="{{ url_for('settings.index', tab='credentials') }}" target="_blank">管理驗證庫</a>
+                        </div>
+                        {% for err in form.credential_id.errors %}
                             <div class="text-danger small">{{ err }}</div>
                         {% endfor %}
                     </div>

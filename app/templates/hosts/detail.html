@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ host.name }} — Config Manager{% endblock %}
+{% block title %}{{ host.name }} — IT Manager{% endblock %}
 {% block content %}
 <div class="mx-auto" style="max-width: 960px;">
     <div class="d-flex align-items-center mb-4">
@@ -34,7 +34,7 @@
                 <div class="card-body">
                     <dl class="row mb-0 small">
                         <dt class="col-4 text-muted">連線</dt>
-                        <dd class="col-8">{{ host.username }}@{{ host.ip_address }}:{{ host.port }}</dd>
+                        <dd class="col-8">{{ (host.credential.username if host.credential else '?') }}@{{ host.ip_address }}:{{ host.port }}</dd>
 
                         <dt class="col-4 text-muted">分組</dt>
                         <dd class="col-8">

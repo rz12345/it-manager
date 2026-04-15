@@ -1,0 +1,108 @@
+{{ form.hidden_tag('csrf_token') }}
+
+<div class="mb-3">
+  {{ form.name.label(class='form-label') }}
+  {{ form.name(class='form-control' + (' is-invalid' if form.name.errors else '')) }}
+  {% for e in form.name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+</div>
+
+<div class="mb-3">
+  {{ form.tags.label(class='form-label') }}
+  {{ form.tags(class='form-control', placeholder='例：重要, 週報, 財務') }}
+  <div class="form-text">多個標籤以逗號分隔</div>
+</div>
+
+<div class="mb-3">
+  {{ form.subject.label(class='form-label') }}
+  {{ form.subject(class='form-control' + (' is-invalid' if form.subject.errors else ''), placeholder='您好 {{ name }}，以下是本週報告') }}
+  {% for e in form.subject.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+</div>
+
+{# ── Scraper 變數 ── #}
+<div class="card mb-3">
+  <div class="card-header"><i class="bi bi-robot me-2"></i>Scraper 變數 <small class="text-muted fw-normal ms-1">（執行時動態注入爬蟲擷取內容）</small></div>
+  <div class="card-body">
+    <div id="scraper-vars-rows"></div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="add-scraper-var">
+      <i class="bi bi-plus me-1"></i>新增變數
+    </button>
+    <input type="hidden" name="scraper_vars" id="scraper_vars_input"
+           value="{{ form.scraper_vars.data or '{}' }}">
+  </div>
+</div>
+
+<script>
+(function () {
+  var SCRAPER_CHOICES = {{ scraper_choices | tojson }};
+
+  function serialize() {
+    var obj = {};
+    document.querySelectorAll('.scraper-var-row').forEach(function (row) {
+      var key = row.querySelector('.sv-key').value.trim();
+      var val = row.querySelector('.sv-scraper').value;
+      if (key && val) obj[key] = parseInt(val, 10);
+    });
+    document.getElementById('scraper_vars_input').value = JSON.stringify(obj);
+  }
+
+  function addRow(key, scraperId) {
+    var div = document.createElement('div');
+    div.className = 'scraper-var-row d-flex gap-2 mb-2 align-items-center';
+
+    var keyInput = document.createElement('input');
+    keyInput.type = 'text';
+    keyInput.className = 'form-control sv-key';
+    keyInput.placeholder = '變數名稱（如 latest_version）';
+    keyInput.value = key || '';
+    keyInput.style.maxWidth = '220px';
+
+    var sel = document.createElement('select');
+    sel.className = 'form-select sv-scraper';
+    sel.style.maxWidth = '260px';
+    SCRAPER_CHOICES.forEach(function (pair) {
+      var opt = document.createElement('option');
+      opt.value = pair[0];
+      opt.textContent = pair[1];
+      if (pair[0] === scraperId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn-sm btn-outline-danger';
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', function () { div.remove(); serialize(); });
+
+    keyInput.addEventListener('input', serialize);
+    sel.addEventListener('change', serialize);
+
+    div.appendChild(keyInput);
+    div.appendChild(sel);
+    div.appendChild(delBtn);
+    document.getElementById('scraper-vars-rows').appendChild(div);
+    serialize();
+  }
+
+  try {
+    var existing = JSON.parse(
+      document.getElementById('scraper_vars_input').value || '{}'
+    );
+    Object.entries(existing).forEach(function (entry) { addRow(entry[0], entry[1]); });
+  } catch (e) {}
+
+  document.getElementById('add-scraper-var').addEventListener('click', function () {
+    if (SCRAPER_CHOICES.length === 0) {
+      alert('尚無可用爬蟲，請先至「爬蟲管理」新增爬蟲。');
+      return;
+    }
+    addRow('', SCRAPER_CHOICES[0][0]);
+  });
+})();
+</script>
+
+<div class="mb-3">
+  {{ form.body.label(class='form-label') }}
+  {{ form.body(class='form-control font-monospace' + (' is-invalid' if form.body.errors else ''), rows=16) }}
+  {% for e in form.body.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+</div>
+

@@ -9,7 +9,7 @@ from __future__ import annotations
 DYNAMIC_KEYS = (
     # SMTP 告警
     'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM',
-    'NOTIFY_EMAIL',
+    'NOTIFY_EMAIL', 'TEST_EMAIL',
     # SSH / Netmiko 逾時
     'SSH_TIMEOUT_SECONDS',
     'NETMIKO_TIMEOUT_SECONDS',
@@ -27,6 +27,7 @@ _DEFAULTS: dict[str, str] = {
     'SMTP_PASS':              '',
     'SMTP_FROM':              '',
     'NOTIFY_EMAIL':           '',
+    'TEST_EMAIL':             '',
     'SSH_TIMEOUT_SECONDS':    '30',
     'NETMIKO_TIMEOUT_SECONDS': '60',
     'SCHEDULER_MAX_WORKERS':  '10',

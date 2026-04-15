@@ -61,13 +61,20 @@ def run_device_backup(device_id: int, task_id: int | None = None,
     timestamp = run.started_at.strftime('%Y%m%d_%H%M%S')
     storage_dir = _storage_dir(device.id)
 
-    password = safe_decrypt(device.password_enc)
-    enable_pw = safe_decrypt(device.enable_password_enc or '')
+    if device.credential is None:
+        run.status = 'failed'
+        run.error_message = '設備未綁定驗證'
+        run.finished_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return run
+    cred = device.credential
+    password = safe_decrypt(cred.password_enc)
+    enable_pw = safe_decrypt(cred.enable_password_enc or '')
     conn_args = {
         'device_type': device.vendor,
         'host':        device.ip_address,
         'port':        device.port,
-        'username':    device.username,
+        'username':    cred.username,
         'password':    password,
         'timeout':     timeout,
     }

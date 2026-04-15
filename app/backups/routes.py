@@ -2,7 +2,7 @@ import os
 
 from flask import (abort, flash, redirect, render_template, request,
                    send_file, url_for)
-from flask_login import current_user, login_required
+from flask_login import login_required
 
 from app import db
 from app.backups import bp
@@ -10,54 +10,11 @@ from app.groups.decorators import admin_required, user_can_access
 from app.models import BackupRecord, BackupRun, Device, Host
 
 
-def _visible_runs_query():
-    """依 current_user 可見範圍過濾 BackupRun。"""
-    q = BackupRun.query
-    if current_user.is_admin:
-        return q
-
-    host_ids = [h.id for h in Host.query.filter(
-        Host.group_id.in_(current_user.group_ids or [0])
-    ).all()]
-    device_ids = [d.id for d in Device.query.filter(
-        Device.group_id.in_(current_user.group_ids or [0])
-    ).all()]
-
-    return q.filter(
-        db.or_(
-            db.and_(BackupRun.target_type == 'host',
-                    BackupRun.host_id.in_(host_ids or [0])),
-            db.and_(BackupRun.target_type == 'device',
-                    BackupRun.device_id.in_(device_ids or [0])),
-        )
-    )
-
-
-# ── 備份歷史列表（全局） ──
+# ── 備份歷史列表：已整合至 logs.index ──
 @bp.route('/')
 @login_required
 def index():
-    page = request.args.get('page', 1, type=int)
-    target_type = request.args.get('type', '').strip()
-    status = request.args.get('status', '').strip()
-    task_id = request.args.get('task_id', type=int)
-
-    q = _visible_runs_query()
-    if target_type in ('host', 'device'):
-        q = q.filter(BackupRun.target_type == target_type)
-    if status in ('running', 'success', 'partial', 'failed'):
-        q = q.filter(BackupRun.status == status)
-    if task_id:
-        q = q.filter(BackupRun.task_id == task_id)
-
-    pagination = q.order_by(BackupRun.started_at.desc()).paginate(
-        page=page, per_page=30, error_out=False)
-
-    return render_template('backups/list.html',
-                           pagination=pagination,
-                           filter_type=target_type,
-                           filter_status=status,
-                           filter_task_id=task_id)
+    return redirect(url_for('logs.index', tab='backup', **request.args))
 
 
 # ── 單一主機／設備的備份歷史 ──

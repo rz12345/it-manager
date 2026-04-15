@@ -8,8 +8,9 @@ from flask_login import current_user, login_required
 from app import db
 from app.dashboard import bp
 from app.groups.decorators import admin_required
-from app.models import (BackupAlert, BackupRecord, BackupRun, BackupTask,
-                        BackupTaskTarget, Device, Host)
+from app.models import (Attachment, BackupAlert, BackupRecord, BackupRun,
+                        BackupTask, BackupTaskTarget, Device, EmailRun,
+                        EmailTask, Host)
 
 
 def _storage_stats():
@@ -24,6 +25,10 @@ def _storage_stats():
 
     config_bytes = db.session.query(
         db.func.coalesce(db.func.sum(BackupRecord.file_size), 0)
+    ).scalar() or 0
+
+    attachment_bytes = db.session.query(
+        db.func.coalesce(db.func.sum(Attachment.file_size), 0)
     ).scalar() or 0
 
     db_bytes = 0
@@ -51,6 +56,7 @@ def _storage_stats():
         'free': usage.free,
         'used_pct': round(used_pct, 1),
         'config_bytes': int(config_bytes),
+        'attachment_bytes': int(attachment_bytes),
         'db_bytes': int(db_bytes),
         'bar_class': bar_class,
         'path': backup_base,
@@ -111,12 +117,22 @@ def index():
     active_schedules = _visible_tasks_query().filter(BackupTask.is_active.is_(True)).count()
 
     now = datetime.now(timezone.utc)
-    day_ago = now - timedelta(hours=24)
-    runs_24h = _visible_runs_query().filter(BackupRun.started_at >= day_ago).count()
-    success_24h = _visible_runs_query().filter(
-        BackupRun.started_at >= day_ago,
-        BackupRun.status == 'success',
-    ).count()
+    week_ago = now - timedelta(days=7)
+    from sqlalchemy import case, func
+    minute = func.strftime('%Y-%m-%d %H:%M', BackupRun.started_at)
+    visible_run_ids_subq = _visible_runs_query().with_entities(BackupRun.id).subquery()
+    grouped = (db.session.query(
+                        BackupRun.task_id,
+                        minute.label('m'),
+                        func.sum(case((BackupRun.status == 'failed', 1), else_=0)).label('fail_cnt'),
+                   )
+                   .filter(BackupRun.id.in_(db.session.query(visible_run_ids_subq)),
+                           BackupRun.started_at >= week_ago)
+                   .group_by(BackupRun.task_id, minute)
+                   .subquery())
+    runs_week = db.session.query(func.count()).select_from(grouped).scalar() or 0
+    success_week = (db.session.query(func.count()).select_from(grouped)
+                   .filter(grouped.c.fail_cnt == 0).scalar() or 0)
 
     recent_runs = (_visible_runs_query()
                    .order_by(BackupRun.started_at.desc())
@@ -139,19 +155,59 @@ def index():
                               BackupTask.next_run.isnot(None))
                       .order_by(BackupTask.next_run.asc()).limit(10).all())
 
+    # ── Email 區塊 ──
+    email_tasks_q = EmailTask.query
+    if not current_user.is_admin:
+        gids = current_user.group_ids or []
+        if gids:
+            email_tasks_q = email_tasks_q.filter(db.or_(
+                EmailTask.owner_id == current_user.id,
+                EmailTask.group_id.in_(gids)))
+        else:
+            email_tasks_q = email_tasks_q.filter(EmailTask.owner_id == current_user.id)
+    email_total = email_tasks_q.count()
+    email_active = email_tasks_q.filter(EmailTask.is_active.is_(True)).count()
+
+    email_visible_ids_subq = email_tasks_q.with_entities(EmailTask.id).subquery()
+    email_runs_base = EmailRun.query.filter(
+        EmailRun.task_id.in_(db.session.query(email_visible_ids_subq))
+    )
+    email_runs_week = email_runs_base.filter(EmailRun.started_at >= week_ago).count()
+    email_success_week = email_runs_base.filter(
+        EmailRun.started_at >= week_ago,
+        EmailRun.status == 'success',
+    ).count()
+    email_recent_runs = (email_runs_base
+                         .order_by(EmailRun.started_at.desc())
+                         .limit(10).all())
+    email_upcoming = (email_tasks_q
+                      .filter(EmailTask.is_active.is_(True),
+                              EmailTask.next_run.isnot(None))
+                      .order_by(EmailTask.next_run.asc()).limit(10).all())
+
     storage = _storage_stats() if current_user.is_admin else None
+    active_tab = request.args.get('tab', 'backup')
+    if active_tab not in ('backup', 'email'):
+        active_tab = 'backup'
 
     return render_template('dashboard/index.html',
                            host_count=host_count,
                            device_count=device_count,
                            active_schedules=active_schedules,
                            total_schedules=total_schedules,
-                           runs_24h=runs_24h,
-                           success_24h=success_24h,
+                           runs_week=runs_week,
+                           success_week=success_week,
                            recent_runs=recent_runs,
                            alerts=alerts,
                            upcoming_tasks=upcoming_tasks,
-                           storage=storage)
+                           storage=storage,
+                           email_total=email_total,
+                           email_active=email_active,
+                           email_runs_week=email_runs_week,
+                           email_success_week=email_success_week,
+                           email_recent_runs=email_recent_runs,
+                           email_upcoming=email_upcoming,
+                           active_tab=active_tab)
 
 
 @bp.route('/alerts/<int:alert_id>/read', methods=['POST'])

@@ -134,8 +134,32 @@ def _apply_form_to_task(form: BackupTaskForm, task: BackupTask):
 @bp.route('/')
 @login_required
 def index():
+    if request.args.get('tab') == 'email':
+        from app.email_tasks.routes import index as email_index
+        return email_index()
     tasks = _visible_tasks_query().order_by(BackupTask.name).all()
-    return render_template('tasks/list.html', tasks=tasks)
+    from datetime import timedelta
+    from sqlalchemy import case, func
+    week_ago = datetime.utcnow() - timedelta(days=7)
+    visible_ids_subq = _visible_tasks_query().with_entities(BackupTask.id).subquery()
+    minute = func.strftime('%Y-%m-%d %H:%M', BackupRun.started_at)
+    grouped = (db.session.query(
+                    BackupRun.task_id,
+                    minute.label('m'),
+                    func.sum(case((BackupRun.status == 'failed', 1), else_=0)).label('fail_cnt'),
+               )
+               .filter(BackupRun.task_id.in_(db.session.query(visible_ids_subq)),
+                       BackupRun.started_at >= week_ago)
+               .group_by(BackupRun.task_id, minute)
+               .subquery())
+    success_week = db.session.query(func.count()).select_from(grouped).filter(grouped.c.fail_cnt == 0).scalar() or 0
+    failed_week  = db.session.query(func.count()).select_from(grouped).filter(grouped.c.fail_cnt > 0).scalar() or 0
+    summary = {
+        'active': _visible_tasks_query().filter(BackupTask.is_active.is_(True)).count(),
+        'success_week': success_week,
+        'failed_week': failed_week,
+    }
+    return render_template('tasks/list.html', tasks=tasks, summary=summary)
 
 
 @bp.route('/create', methods=['GET', 'POST'])
@@ -210,7 +234,7 @@ def delete(task_id):
     task = BackupTask.query.get_or_404(task_id)
     name = task.name
     # 解除 BackupRun.task_id（保留歷史紀錄）
-    task.backup_runs.update({BackupRun.task_id: None}, synchronize_session=False)
+    task.runs.update({BackupRun.task_id: None}, synchronize_session=False)
     db.session.delete(task)
     db.session.commit()
     flash(f'已刪除任務「{name}」', 'info')

@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block title %}{{ scraper.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2><i class="bi bi-robot me-2 text-primary"></i>{{ scraper.name }}</h2>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('scrapers.edit', scraper_id=scraper.id) }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-pencil me-1"></i>編輯
+    </a>
+    <form method="post" action="{{ url_for('scrapers.test', scraper_id=scraper.id) }}"
+          class="d-inline" id="test-form-detail">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="button" class="btn btn-sm btn-outline-primary"
+              onclick="showConfirmModal('立即測試', '立即測試爬蟲「{{ scraper.name }}」？（需等待頁面擷取完成）', function(){ document.getElementById('test-form-detail').submit(); })">
+        <i class="bi bi-play-circle me-1"></i>立即測試
+      </button>
+    </form>
+    <form method="post" action="{{ url_for('scrapers.delete', scraper_id=scraper.id) }}"
+          class="d-inline" id="delete-form-detail">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="button" class="btn btn-sm btn-outline-danger"
+              onclick="showConfirmModal('刪除爬蟲', '確定刪除爬蟲「{{ scraper.name }}」？此操作無法復原。', function(){ document.getElementById('delete-form-detail').submit(); })">
+        <i class="bi bi-trash me-1"></i>刪除
+      </button>
+    </form>
+    <a href="{{ url_for('scrapers.index') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>返回
+    </a>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><i class="bi bi-info-circle me-2"></i>爬蟲設定</div>
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-3 text-muted fw-normal small">目標 URL</dt>
+      <dd class="col-sm-9"><a href="{{ scraper.url }}" target="_blank" rel="noopener">{{ scraper.url }}</a></dd>
+
+      <dt class="col-sm-3 text-muted fw-normal small">擷取方式</dt>
+      <dd class="col-sm-9">
+        {% if scraper.extract_type == 'css' %}
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+            <i class="bi bi-hash me-1"></i>CSS 選擇器
+          </span>
+        {% elif scraper.extract_type == 'js' %}
+          <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+            <i class="bi bi-braces me-1"></i>JavaScript
+          </span>
+        {% else %}
+          <span class="badge bg-success-subtle text-success border border-success-subtle">
+            <i class="bi bi-regex me-1"></i>正規表達式
+          </span>
+        {% endif %}
+      </dd>
+
+      <dt class="col-sm-3 text-muted fw-normal small">擷取規則</dt>
+      <dd class="col-sm-9">
+        <div class="position-relative">
+          <pre class="bg-dark text-light rounded p-3 mb-0 small font-monospace"
+               style="white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto"
+               id="pattern-display">{{ scraper.extract_pattern }}</pre>
+          <button type="button" class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-2 py-0 px-2"
+                  style="font-size:.7rem" onclick="copyPattern()" id="copy-btn" title="複製規則">
+            <i class="bi bi-clipboard me-1"></i>複製
+          </button>
+        </div>
+      </dd>
+
+      <dt class="col-sm-3 text-muted fw-normal small">上次執行</dt>
+      <dd class="col-sm-9 text-muted small">{{ scraper.last_checked | localtime }}</dd>
+
+      {% if scraper.last_content %}
+      <dt class="col-sm-3 text-muted fw-normal small">上次擷取內容</dt>
+      <dd class="col-sm-9">
+        <pre class="bg-light border rounded p-2 small mb-0" style="max-height:150px;overflow-y:auto;white-space:pre-wrap">{{ scraper.last_content }}</pre>
+      </dd>
+      {% endif %}
+
+      <dt class="col-sm-3 text-muted fw-normal small">建立時間</dt>
+      <dd class="col-sm-9 text-muted small">{{ scraper.created_at | localtime }}</dd>
+    </dl>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyPattern() {
+  var text = document.getElementById('pattern-display').textContent;
+  navigator.clipboard.writeText(text).then(function () {
+    var btn = document.getElementById('copy-btn');
+    btn.innerHTML = '<i class="bi bi-check2 me-1"></i>已複製';
+    setTimeout(function () {
+      btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>複製';
+    }, 2000);
+  });
+}
+</script>
+{% endblock %}

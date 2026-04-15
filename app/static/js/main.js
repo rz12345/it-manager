@@ -1,4 +1,4 @@
-/* Config Manager — 共用 JS（Toast / Confirm Modal / AJAX helpers） */
+/* IT Manager — 共用 JS（Toast / Confirm Modal / AJAX helpers） */
 (function () {
     'use strict';
 
@@ -241,6 +241,41 @@
         });
     }
 
+    // ── 表格即時過濾 ──
+    // 依 input 關鍵字過濾指定 table tbody 的 tr（比對 tr textContent，不分大小寫）
+    // 若全部隱藏則顯示空狀態列（emptyText）
+    function initTableFilter(input, table, {emptyText = '查無符合項目'} = {}) {
+        if (!input || !table) return;
+        const tbody = table.tBodies[0];
+        if (!tbody) return;
+        const colCount = (table.tHead && table.tHead.rows[0])
+            ? table.tHead.rows[0].cells.length : 1;
+        let emptyRow = tbody.querySelector('tr.table-filter-empty');
+        const filter = () => {
+            const q = input.value.trim().toLowerCase();
+            let shown = 0;
+            Array.from(tbody.rows).forEach((tr) => {
+                if (tr.classList.contains('table-filter-empty')) return;
+                if (tr.dataset.filterSkip === '1') return;
+                const hit = !q || tr.textContent.toLowerCase().includes(q);
+                tr.classList.toggle('d-none', !hit);
+                if (hit) shown += 1;
+            });
+            if (shown === 0 && q) {
+                if (!emptyRow) {
+                    emptyRow = document.createElement('tr');
+                    emptyRow.className = 'table-filter-empty';
+                    emptyRow.innerHTML = `<td colspan="${colCount}" class="text-center text-muted py-4">${emptyText}</td>`;
+                    tbody.appendChild(emptyRow);
+                }
+                emptyRow.classList.remove('d-none');
+            } else if (emptyRow) {
+                emptyRow.classList.add('d-none');
+            }
+        };
+        input.addEventListener('input', filter);
+    }
+
     // expose
     window.CM = {
         showToast,
@@ -252,5 +287,6 @@
         renderVersionRows,
         bindVersionCollapseToggles,
         autoCollapseRows,
+        initTableFilter,
     };
 })();

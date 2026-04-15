@@ -40,13 +40,13 @@ def _form_data(**overrides):
 
 
 def test_index_requires_login(client, admin_user):
-    resp = client.get('/config-manager/assets/', follow_redirects=False)
+    resp = client.get('/it-manager/assets/', follow_redirects=False)
     assert resp.status_code == 302
     assert '/auth/login' in resp.location
 
 
 def test_admin_can_create_host(client, logged_in_admin, db):
-    resp = client.post('/config-manager/hosts/create',
+    resp = client.post('/it-manager/hosts/create',
                        data=_form_data(), follow_redirects=False)
     assert resp.status_code == 302
 
@@ -60,7 +60,7 @@ def test_admin_can_create_host(client, logged_in_admin, db):
 
 
 def test_regular_user_cannot_create_host(client, logged_in_user):
-    resp = client.post('/config-manager/hosts/create',
+    resp = client.post('/it-manager/hosts/create',
                        data=_form_data(), follow_redirects=False)
     assert resp.status_code == 403
 
@@ -69,20 +69,20 @@ def test_host_visibility_respects_group(client, db, regular_user, group, host, l
     """一般使用者僅能看到自己所屬分組的主機。"""
     # 未加入分組前不可見（detail → 403）
     login('bob', 'bob-pass-12345')
-    resp = client.get(f'/config-manager/hosts/{host.id}', follow_redirects=False)
+    resp = client.get(f'/it-manager/hosts/{host.id}', follow_redirects=False)
     assert resp.status_code == 403
 
     # 加入分組後可見
     regular_user.groups.append(group)
     db.session.commit()
-    resp = client.get(f'/config-manager/hosts/{host.id}', follow_redirects=False)
+    resp = client.get(f'/it-manager/hosts/{host.id}', follow_redirects=False)
     assert resp.status_code == 200
 
 
 def test_admin_edit_host_keeps_password_when_blank(client, logged_in_admin, host, db):
     """編輯時密碼留白應保留原值。"""
     original_pw = host.password_enc
-    resp = client.post(f'/config-manager/hosts/{host.id}/edit',
+    resp = client.post(f'/it-manager/hosts/{host.id}/edit',
                        data=_form_data(name='web-01-renamed', password=''),
                        follow_redirects=False)
     assert resp.status_code == 302
@@ -92,7 +92,7 @@ def test_admin_edit_host_keeps_password_when_blank(client, logged_in_admin, host
 
 
 def test_admin_delete_host(client, logged_in_admin, host, db):
-    resp = client.post(f'/config-manager/hosts/{host.id}/delete',
+    resp = client.post(f'/it-manager/hosts/{host.id}/delete',
                        follow_redirects=False)
     assert resp.status_code == 302
     from app.models import Host
@@ -100,7 +100,7 @@ def test_admin_delete_host(client, logged_in_admin, host, db):
 
 
 def test_add_file_path(client, logged_in_admin, host, db):
-    resp = client.post(f'/config-manager/hosts/{host.id}/paths/add',
+    resp = client.post(f'/it-manager/hosts/{host.id}/paths/add',
                        data={'path': '/etc/nginx/nginx.conf'},
                        follow_redirects=False)
     assert resp.status_code == 302
@@ -111,7 +111,7 @@ def test_add_file_path(client, logged_in_admin, host, db):
 
 
 def test_add_file_path_rejects_relative(client, logged_in_admin, host):
-    resp = client.post(f'/config-manager/hosts/{host.id}/paths/add',
+    resp = client.post(f'/it-manager/hosts/{host.id}/paths/add',
                        data={'path': 'etc/no-slash'},
                        follow_redirects=True)
     # 失敗會 flash 並 redirect；flash 訊息中含絕對路徑提示
@@ -127,7 +127,7 @@ def test_template_applies_paths(client, logged_in_admin, db):
     db.session.add(t)
     db.session.commit()
 
-    resp = client.post('/config-manager/hosts/create',
+    resp = client.post('/it-manager/hosts/create',
                        data=_form_data(name='web-10', template_id=str(t.id)),
                        follow_redirects=False)
     assert resp.status_code == 302

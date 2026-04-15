@@ -1,0 +1,40 @@
+{# 設定分頁共用 nav — 使用 active_tab 指定當前分頁 #}
+{% set _tab = active_tab | default('notify') %}
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'notify' %}active{% endif %}"
+           href="{{ url_for('settings.index', tab='notify') }}">
+            <i class="bi bi-envelope-at me-1"></i>通知
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'connection' %}active{% endif %}"
+           href="{{ url_for('settings.index', tab='connection') }}">
+            <i class="bi bi-stopwatch me-1"></i>連線
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'tags' %}active{% endif %}"
+           href="{{ url_for('settings.index', tab='tags') }}">
+            <i class="bi bi-tags me-1"></i>標籤
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'users' %}active{% endif %}"
+           href="{{ url_for('settings.index', tab='users') }}">
+            <i class="bi bi-person me-1"></i>帳號
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'groups' %}active{% endif %}"
+           href="{{ url_for('settings.index', tab='groups') }}">
+            <i class="bi bi-people me-1"></i>分組
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'credentials' %}active{% endif %}"
+           href="{{ url_for('settings.index', tab='credentials') }}">
+            <i class="bi bi-key me-1"></i>驗證庫
+        </a>
+    </li>
+</ul>

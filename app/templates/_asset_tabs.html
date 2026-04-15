@@ -1,0 +1,36 @@
+{# 資產分頁共用 nav — 使用 active_asset_tab 指定當前分頁 #}
+{% set _tab = active_asset_tab | default('hosts') %}
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'hosts' %}active{% endif %}"
+           href="{{ url_for('assets.index', tab='hosts') }}">
+            <i class="bi bi-hdd-stack me-1"></i>Linux 主機
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'devices' %}active{% endif %}"
+           href="{{ url_for('assets.index', tab='devices') }}">
+            <i class="bi bi-router me-1"></i>網路設備
+        </a>
+    </li>
+    {% if current_user.is_admin %}
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'templates' %}active{% endif %}"
+           href="{{ url_for('assets.index', tab='templates') }}">
+            <i class="bi bi-stack me-1"></i>主機類型模板
+        </a>
+    </li>
+    {% endif %}
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'email_templates' %}active{% endif %}"
+           href="{{ url_for('assets.index', tab='email_templates') }}">
+            <i class="bi bi-file-earmark-text me-1"></i>郵件模板
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'scrapers' %}active{% endif %}"
+           href="{{ url_for('assets.index', tab='scrapers') }}">
+            <i class="bi bi-robot me-1"></i>爬蟲
+        </a>
+    </li>
+</ul>

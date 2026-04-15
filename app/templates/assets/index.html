@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}資產 — Config Manager{% endblock %}
+{% block title %}資產 — IT Manager{% endblock %}
 {% block content %}
 <div class="d-flex align-items-center mb-4">
     <h3 class="mb-0"><i class="bi bi-hdd-stack me-2"></i>資產</h3>
@@ -22,37 +22,24 @@
     </div>
 </div>
 
-<ul class="nav nav-tabs mb-4">
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'hosts' %}active{% endif %}"
-           href="{{ url_for('assets.index', tab='hosts') }}">
-            <i class="bi bi-hdd-stack me-1"></i>Linux 主機
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'devices' %}active{% endif %}"
-           href="{{ url_for('assets.index', tab='devices') }}">
-            <i class="bi bi-router me-1"></i>網路設備
-        </a>
-    </li>
-    {% if current_user.is_admin %}
-    <li class="nav-item">
-        <a class="nav-link {% if active_tab == 'templates' %}active{% endif %}"
-           href="{{ url_for('assets.index', tab='templates') }}">
-            <i class="bi bi-stack me-1"></i>主機類型模板
-        </a>
-    </li>
-    {% endif %}
-</ul>
+{% with active_asset_tab = active_tab %}{% include '_asset_tabs.html' %}{% endwith %}
 
 {% if active_tab == 'hosts' %}
+<div class="mb-3">
+    <div class="input-group input-group-sm" style="max-width: 360px;">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" id="asset-filter-input" class="form-control"
+               placeholder="過濾名稱 / IP / 分組 …" autocomplete="off">
+    </div>
+</div>
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
-        <table class="table table-hover mb-0 align-middle">
+        <table id="asset-filter-table" class="table table-hover mb-0 align-middle">
             <thead class="table-light">
                 <tr>
+                    <th class="text-center" style="width: 3rem;">#</th>
                     <th>名稱</th>
-                    <th>連線</th>
+                    <th>IP</th>
                     <th>分組</th>
                     <th class="text-center">狀態</th>
                     <th>最近備份</th>
@@ -62,6 +49,7 @@
             <tbody>
                 {% for h in hosts %}
                 <tr>
+                    <td class="text-center text-muted small">{{ loop.index }}</td>
                     <td class="fw-semibold">
                         <a href="{{ url_for('hosts.detail', host_id=h.id) }}"
                            class="text-decoration-none">{{ h.name }}</a>
@@ -70,7 +58,7 @@
                         {% endif %}
                     </td>
                     <td class="text-muted small">
-                        {{ h.username }}@{{ h.ip_address }}:{{ h.port }}
+                        {{ h.ip_address }}
                     </td>
                     <td>
                         {% if h.group %}
@@ -122,7 +110,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
+                    <td colspan="7" class="text-center text-muted py-4">
                         尚無主機{% if current_user.is_admin %}，<a href="{{ url_for('hosts.create') }}">新增第一台主機</a>{% endif %}。
                     </td>
                 </tr>
@@ -133,14 +121,21 @@
 </div>
 
 {% elif active_tab == 'devices' %}
+<div class="mb-3">
+    <div class="input-group input-group-sm" style="max-width: 360px;">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" id="asset-filter-input" class="form-control"
+               placeholder="過濾名稱 / 廠商 / IP / 分組 …" autocomplete="off">
+    </div>
+</div>
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
-        <table class="table table-hover mb-0 align-middle">
+        <table id="asset-filter-table" class="table table-hover mb-0 align-middle">
             <thead class="table-light">
                 <tr>
+                    <th class="text-center" style="width: 3rem;">#</th>
                     <th>名稱</th>
-                    <th>廠商</th>
-                    <th>連線</th>
+                    <th>IP</th>
                     <th>分組</th>
                     <th class="text-center">狀態</th>
                     <th>最近備份</th>
@@ -150,15 +145,16 @@
             <tbody>
                 {% for d in devices %}
                 <tr>
+                    <td class="text-center text-muted small">{{ loop.index }}</td>
                     <td class="fw-semibold">
                         <a href="{{ url_for('devices.detail', device_id=d.id) }}"
                            class="text-decoration-none">{{ d.name }}</a>
+                        <div class="text-muted small">{{ d.vendor_label }}</div>
                         {% if d.description %}
                             <div class="text-muted small">{{ d.description }}</div>
                         {% endif %}
                     </td>
-                    <td class="small">{{ d.vendor_label }}</td>
-                    <td class="text-muted small">{{ d.username }}@{{ d.ip_address }}:{{ d.port }}</td>
+                    <td class="text-muted small">{{ d.ip_address }}</td>
                     <td>
                         {% if d.group %}
                             <span class="badge bg-secondary">{{ d.group.name }}</span>
@@ -216,11 +212,19 @@
 </div>
 
 {% elif active_tab == 'templates' %}
+<div class="mb-3">
+    <div class="input-group input-group-sm" style="max-width: 360px;">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" id="asset-filter-input" class="form-control"
+               placeholder="過濾名稱 / 描述 …" autocomplete="off">
+    </div>
+</div>
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
-        <table class="table table-hover mb-0 align-middle">
+        <table id="asset-filter-table" class="table table-hover mb-0 align-middle">
             <thead class="table-light">
                 <tr>
+                    <th class="text-center" style="width: 3rem;">#</th>
                     <th>名稱</th>
                     <th>描述</th>
                     <th class="text-center">預設路徑數</th>
@@ -230,6 +234,7 @@
             <tbody>
                 {% for t in templates %}
                 <tr>
+                    <td class="text-center text-muted small">{{ loop.index }}</td>
                     <td class="fw-semibold">
                         <a href="{{ url_for('hosts.templates_detail', template_id=t.id) }}"
                            class="text-decoration-none">{{ t.name }}</a>
@@ -260,7 +265,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="text-center text-muted py-4">
+                    <td colspan="5" class="text-center text-muted py-4">
                         尚無模板，<a href="{{ url_for('hosts.templates_create') }}">建立第一個模板</a>。
                     </td>
                 </tr>
@@ -270,4 +275,16 @@
     </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const input = document.getElementById('asset-filter-input');
+    const table = document.getElementById('asset-filter-table');
+    if (input && table && window.CM) {
+        window.CM.initTableFilter(input, table);
+    }
+})();
+</script>
 {% endblock %}

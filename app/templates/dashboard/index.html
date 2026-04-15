@@ -1,50 +1,22 @@
 {% extends 'base.html' %}
-{% block title %}儀表板 — Config Manager{% endblock %}
+{% block title %}儀表板 — IT Manager{% endblock %}
 {% block content %}
 <h3 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>儀表板</h3>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card stat-info border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">Linux 主機</div>
-                <div class="stat-value">{{ host_count }}</div>
-                <a href="{{ url_for('assets.index', tab='hosts') }}" class="stretched-link small"></a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card stat-info border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">網路設備</div>
-                <div class="stat-value">{{ device_count }}</div>
-                <a href="{{ url_for('assets.index', tab='devices') }}" class="stretched-link small"></a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card stat-success border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">啟用中排程</div>
-                <div class="stat-value">
-                    <span>{{ active_schedules }}</span>
-                    <span class="text-muted">/ {{ total_schedules }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card {% if success_24h < runs_24h %}stat-danger{% else %}stat-success{% endif %} border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">24 小時備份（成功 / 總數）</div>
-                <div class="stat-value">
-                    <span class="{% if success_24h < runs_24h %}text-danger{% else %}text-success{% endif %}">{{ success_24h }}</span>
-                    <span class="text-muted">/ {{ runs_24h }}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'backup' %}active{% endif %}"
+           href="{{ url_for('dashboard.index', tab='backup') }}">
+            <i class="bi bi-archive me-1"></i>組態備份
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'email' %}active{% endif %}"
+           href="{{ url_for('dashboard.index', tab='email') }}">
+            <i class="bi bi-envelope me-1"></i>Email
+        </a>
+    </li>
+</ul>
 
 {% if storage %}
 <div class="card border-0 shadow-sm mb-4">
@@ -55,7 +27,11 @@
             <span class="ms-auto small">
                 <span class="fw-semibold">已用 {{ storage.used|filesizeformat(true) }}</span>
                 <span class="text-muted">/ {{ storage.total|filesizeformat(true) }}</span>
+                {% if active_tab == 'email' %}
+                <span class="text-muted ms-2">（郵件模板附件 {{ storage.attachment_bytes|filesizeformat(true) }}，資料庫 {{ storage.db_bytes|filesizeformat(true) }}）</span>
+                {% else %}
                 <span class="text-muted ms-2">（組態檔 {{ storage.config_bytes|filesizeformat(true) }}，資料庫 {{ storage.db_bytes|filesizeformat(true) }}）</span>
+                {% endif %}
             </span>
         </div>
         <div class="progress" style="height: 10px;">
@@ -72,12 +48,56 @@
 </div>
 {% endif %}
 
+{% if active_tab == 'backup' %}
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-sm-6">
+        <div class="card stat-card stat-info border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Linux 主機</div>
+                <div class="stat-value">{{ host_count }}</div>
+                <a href="{{ url_for('assets.index', tab='hosts') }}" class="stretched-link small"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-sm-6">
+        <div class="card stat-card stat-info border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">網路設備</div>
+                <div class="stat-value">{{ device_count }}</div>
+                <a href="{{ url_for('assets.index', tab='devices') }}" class="stretched-link small"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-sm-6">
+        <div class="card stat-card stat-success border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">啟用中排程</div>
+                <div class="stat-value">
+                    <span>{{ active_schedules }}</span>
+                    <span class="text-muted">/ {{ total_schedules }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-sm-6">
+        <div class="card stat-card {% if success_week < runs_week %}stat-danger{% else %}stat-success{% endif %} border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">1 週備份（成功 / 總數）</div>
+                <div class="stat-value">
+                    <span class="{% if success_week < runs_week %}text-danger{% else %}text-success{% endif %}">{{ success_week }}</span>
+                    <span class="text-muted">/ {{ runs_week }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4">
     <div class="col-lg-7">
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white fw-semibold d-flex align-items-center">
-                <i class="bi bi-calendar-event me-1"></i>任務
-                <a href="{{ url_for('tasks.index') }}" class="ms-auto small">全部 &raquo;</a>
+                <i class="bi bi-calendar-event me-1"></i>即將執行
+                <a href="{{ url_for('tasks.index', tab='backup') }}" class="ms-auto small">全部 &raquo;</a>
             </div>
             <ul class="list-group list-group-flush small">
                 {% for t in upcoming_tasks %}
@@ -105,7 +125,7 @@
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white fw-semibold d-flex align-items-center">
                 <i class="bi bi-clock-history me-1"></i>最近備份
-                <a href="{{ url_for('backups.index') }}" class="ms-auto small">全部 &raquo;</a>
+                <a href="{{ url_for('logs.index', tab='backup') }}" class="ms-auto small">全部 &raquo;</a>
             </div>
             <div class="card-body p-0">
                 <table class="table table-hover mb-0 align-middle small">
@@ -183,4 +203,135 @@
         </div>
     </div>
 </div>
+
+{% else %}
+{# ── Email tab ── #}
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-sm-6">
+        <div class="card stat-card stat-success border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">啟用中 Email 任務</div>
+                <div class="stat-value">
+                    <span>{{ email_active }}</span>
+                    <span class="text-muted">/ {{ email_total }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-sm-6">
+        <div class="card stat-card {% if email_success_week < email_runs_week %}stat-danger{% else %}stat-success{% endif %} border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">1 週寄送（成功 / 總數）</div>
+                <div class="stat-value">
+                    <span class="{% if email_success_week < email_runs_week %}text-danger{% else %}text-success{% endif %}">{{ email_success_week }}</span>
+                    <span class="text-muted">/ {{ email_runs_week }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white fw-semibold d-flex align-items-center">
+                <i class="bi bi-calendar-event me-1"></i>即將執行
+                <a href="{{ url_for('tasks.index', tab='email') }}" class="ms-auto small">全部 &raquo;</a>
+            </div>
+            <ul class="list-group list-group-flush small">
+                {% for t in email_upcoming %}
+                <li class="list-group-item">
+                    <div class="d-flex">
+                        <span>
+                            <i class="bi bi-envelope"></i>
+                            <a href="{{ url_for('email_tasks.detail', task_id=t.id) }}"
+                               class="text-decoration-none">{{ t.name }}</a>
+                        </span>
+                        <span class="ms-auto text-muted">{{ t.next_run|localtime }}</span>
+                    </div>
+                </li>
+                {% else %}
+                <li class="list-group-item text-muted text-center py-3">無排程</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-semibold d-flex align-items-center">
+                <i class="bi bi-clock-history me-1"></i>最近寄送
+                <a href="{{ url_for('logs.index', tab='email') }}" class="ms-auto small">全部 &raquo;</a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>時間</th>
+                            <th>任務</th>
+                            <th class="text-center">狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for r in email_recent_runs %}
+                        <tr>
+                            <td>{{ r.started_at|localtime('%m-%d %H:%M') }}</td>
+                            <td><i class="bi bi-envelope"></i> {{ r.target_name }}</td>
+                            <td class="text-center">
+                                {% if r.status == 'success' %}<span class="badge bg-success">成功</span>
+                                {% elif r.status == 'failed' %}<span class="badge bg-danger">失敗</span>
+                                {% elif r.status == 'running' %}<span class="badge bg-secondary">執行中</span>
+                                {% else %}<span class="badge bg-warning">{{ r.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="3" class="text-center text-muted py-3">尚無寄送紀錄</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm" id="alerts">
+            <div class="card-header bg-white fw-semibold d-flex align-items-center">
+                <i class="bi bi-bell me-1"></i>未讀告警
+                <span class="badge bg-danger ms-2">{{ alerts|length }}</span>
+                {% if current_user.is_admin and alerts %}
+                <form method="post" action="{{ url_for('dashboard.mark_all_alerts_read') }}" class="ms-auto">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sm btn-outline-secondary">全部已讀</button>
+                </form>
+                {% endif %}
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for a in alerts %}
+                <li class="list-group-item small">
+                    <div class="d-flex align-items-start">
+                        <span class="badge bg-{{ 'danger' if a.severity == 'error' else 'warning' }} me-2">
+                            {{ '嚴重' if a.severity == 'error' else '警告' }}
+                        </span>
+                        <div class="flex-grow-1">
+                            <div>{{ a.message }}</div>
+                            <div class="text-muted">{{ a.created_at|localtime('%Y-%m-%d %H:%M') }}</div>
+                        </div>
+                        <form method="post" action="{{ url_for('dashboard.mark_alert_read', alert_id=a.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-link text-muted" title="標為已讀">
+                                <i class="bi bi-check2"></i>
+                            </button>
+                        </form>
+                    </div>
+                </li>
+                {% else %}
+                <li class="list-group-item text-muted text-center py-3">
+                    <i class="bi bi-check-circle text-success"></i> 暫無未讀告警
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

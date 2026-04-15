@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}預覽：{{ tmpl.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2><i class="bi bi-eye me-2 text-primary"></i>預覽：{{ tmpl.name }}</h2>
+  <a href="{{ url_for('templates_mgr.edit', tmpl_id=tmpl.id) }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-pencil me-1"></i>返回編輯
+  </a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header small text-muted">
+    <i class="bi bi-envelope me-2"></i>主旨：<strong class="text-dark">{{ rendered_subject }}</strong>
+  </div>
+</div>
+
+{% if scraper_warnings %}
+<div class="alert alert-warning py-2 small d-flex align-items-center gap-2">
+  <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+  <span>
+    以下 Scraper 變數尚無快取內容，顯示為佔位文字（請先至爬蟲管理點「立即測試」）：
+    {% for w in scraper_warnings %}<code>{{ w }}</code>{% if not loop.last %}、{% endif %}{% endfor %}
+  </span>
+</div>
+{% endif %}
+
+<div class="card mb-3">
+  <div class="card-header small text-muted"><i class="bi bi-file-richtext me-2"></i>郵件內容</div>
+  <div class="card-body bg-white">
+    {{ body | safe }}
+  </div>
+</div>
+
+{% if attachments %}
+<div class="card">
+  <div class="card-header"><i class="bi bi-paperclip me-2"></i>附件（{{ attachments | length }}）</div>
+  <ul class="list-group list-group-flush">
+    {% for att in attachments %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+      <span>
+        <i class="bi bi-file-earmark me-2 text-muted"></i>
+        <a href="{{ url_for('templates_mgr.download_attachment', tmpl_id=tmpl.id, att_id=att.id) }}" target="_blank">{{ att.filename }}</a>
+      </span>
+      <span class="text-muted small">{{ (att.file_size / 1024) | round(1) }} KB</span>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endblock %}

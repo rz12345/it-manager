@@ -31,6 +31,12 @@ def _visible_devices():
 @login_required
 def index():
     active_tab = request.args.get('tab', 'hosts')
+    if active_tab == 'email_templates':
+        from app.templates_mgr.routes import index as tmpl_index
+        return tmpl_index()
+    if active_tab == 'scrapers':
+        from app.scrapers.routes import index as scraper_index
+        return scraper_index()
     if active_tab not in ('hosts', 'devices', 'templates'):
         active_tab = 'hosts'
     if active_tab == 'templates' and not current_user.is_admin:

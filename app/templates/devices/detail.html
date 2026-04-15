@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ device.name }} — Config Manager{% endblock %}
+{% block title %}{{ device.name }} — IT Manager{% endblock %}
 {% block content %}
 <div class="mx-auto" style="max-width: 960px;">
     <div class="d-flex align-items-center mb-4">
@@ -35,7 +35,7 @@
                 <div class="card-body">
                     <dl class="row mb-0 small">
                         <dt class="col-4 text-muted">連線</dt>
-                        <dd class="col-8">{{ device.username }}@{{ device.ip_address }}:{{ device.port }}</dd>
+                        <dd class="col-8">{{ (device.credential.username if device.credential else '?') }}@{{ device.ip_address }}:{{ device.port }}</dd>
 
                         <dt class="col-4 text-muted">廠商</dt>
                         <dd class="col-8">{{ device.vendor_label }} <code class="small ms-1">{{ device.vendor }}</code></dd>

@@ -105,7 +105,14 @@ def run_host_backup(host_id: int, task_id: int | None = None,
     timeout = get_ssh_timeout()
     timestamp = run.started_at.strftime('%Y%m%d_%H%M%S')
     storage_dir = _storage_dir(host.id)
-    password = safe_decrypt(host.password_enc)
+    if host.credential is None:
+        run.status = 'failed'
+        run.error_message = '主機未綁定驗證'
+        run.finished_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return run
+    username = host.credential.username
+    password = safe_decrypt(host.credential.password_enc)
 
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -115,7 +122,7 @@ def run_host_backup(host_id: int, task_id: int | None = None,
 
     try:
         client.connect(hostname=host.ip_address, port=host.port,
-                       username=host.username, password=password,
+                       username=username, password=password,
                        timeout=timeout, allow_agent=False, look_for_keys=False)
         sftp = client.open_sftp()
         try:

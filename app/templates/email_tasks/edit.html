@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}編輯任務{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2><i class="bi bi-pencil-square me-2 text-primary"></i>編輯任務：{{ task.name }}</h2>
+  <a href="{{ url_for('email_tasks.index') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>返回
+  </a>
+</div>
+<div class="row">
+  <div class="col-md-8">
+    <form method="post" novalidate>
+      {% include 'email_tasks/_form.html' %}
+      <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-lg me-1"></i>儲存變更
+        </button>
+        <a href="{{ url_for('email_tasks.index') }}" class="btn btn-outline-secondary">取消</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{# 任務分頁共用 nav — 使用 active_task_tab 指定當前分頁 #}
+{% set _tab = active_task_tab | default('backup') %}
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'backup' %}active{% endif %}"
+           href="{{ url_for('tasks.index', tab='backup') }}">
+            <i class="bi bi-archive me-1"></i>組態備份
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'email' %}active{% endif %}"
+           href="{{ url_for('tasks.index', tab='email') }}">
+            <i class="bi bi-envelope me-1"></i>Email
+        </a>
+    </li>
+</ul>

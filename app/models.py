@@ -1,9 +1,17 @@
+"""IT-Manager 統一資料模型
+
+兩專案合併後的核心抽象：
+- Task (基底)：type='backup' | 'email'，共用排程欄位
+- TaskRun (基底)：對應 type 執行一次，email 無子表、backup 有 BackupRecord
+- TaskAlert (原 BackupAlert 泛化)：未讀告警 badge 來源
+"""
 from datetime import datetime, timezone
 
 from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import db, login_manager
+
 
 # ── 網路設備廠商常數 ──
 DEVICE_VENDORS = ('cisco_ios', 'aruba_os', 'paloalto_panos')
@@ -21,11 +29,37 @@ VENDOR_DEFAULT_COMMAND = {
 }
 
 
-# ── 多對多關聯表：User ↔ Group ──
+# ── 標籤顏色調色盤 ──
+_TAG_COLORS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red']
+
+
+def _tag_color(name: str) -> str:
+    return _TAG_COLORS[hash(name) % len(_TAG_COLORS)]
+
+
+# ── 多對多關聯表 ──
 user_groups = db.Table(
     'user_groups',
     db.Column('user_id',  db.Integer, db.ForeignKey('users.id'),  primary_key=True),
     db.Column('group_id', db.Integer, db.ForeignKey('groups.id'), primary_key=True),
+)
+
+task_tags = db.Table(
+    'task_tags',
+    db.Column('task_id', db.Integer, db.ForeignKey('tasks.id'), primary_key=True),
+    db.Column('tag_id',  db.Integer, db.ForeignKey('tags.id'),  primary_key=True),
+)
+
+template_tags = db.Table(
+    'template_tags',
+    db.Column('template_id', db.Integer, db.ForeignKey('email_templates.id'), primary_key=True),
+    db.Column('tag_id',      db.Integer, db.ForeignKey('tags.id'),            primary_key=True),
+)
+
+scraper_tags = db.Table(
+    'scraper_tags',
+    db.Column('scraper_id', db.Integer, db.ForeignKey('scrapers.id'), primary_key=True),
+    db.Column('tag_id',     db.Integer, db.ForeignKey('tags.id'),     primary_key=True),
 )
 
 
@@ -42,6 +76,9 @@ class User(UserMixin, db.Model):
 
     groups = db.relationship('Group', secondary=user_groups, lazy='subquery',
                              backref=db.backref('users', lazy='dynamic'))
+    tasks = db.relationship('Task', backref='owner', lazy='dynamic', foreign_keys='Task.owner_id')
+    email_templates = db.relationship('EmailTemplate', backref='owner', lazy='dynamic')
+    scrapers = db.relationship('Scraper', backref='owner', lazy='dynamic', foreign_keys='Scraper.owner_id')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -64,7 +101,7 @@ def load_user(user_id):
 
 
 class Group(db.Model):
-    """細粒度權限分組：Host / Device 依 group_id 歸屬，User ↔ Group 多對多授權。"""
+    """細粒度權限分組：Host / Device / Task 依 group_id 歸屬，User ↔ Group 多對多授權。"""
     __tablename__ = 'groups'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -74,14 +111,40 @@ class Group(db.Model):
 
     hosts = db.relationship('Host', backref='group', lazy='dynamic')
     devices = db.relationship('Device', backref='group', lazy='dynamic')
+    tasks = db.relationship('Task', backref='group', lazy='dynamic')
 
     def __repr__(self):
         return f'<Group {self.name}>'
 
 
+# ── 驗證庫（SSH / 設備共用帳密）──
+class Credential(db.Model):
+    """集中管理可復用的 SSH / 設備登入帳密；僅 Admin 可 CRUD。"""
+    __tablename__ = 'credentials'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128), unique=True, nullable=False)
+    username = db.Column(db.String(64), nullable=False)
+    password_enc = db.Column(db.Text, nullable=False, default='')
+    enable_password_enc = db.Column(db.Text, nullable=False, default='')
+    description = db.Column(db.String(255), default='')
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    hosts = db.relationship('Host', backref='credential', lazy='dynamic')
+    devices = db.relationship('Device', backref='credential', lazy='dynamic')
+
+    @property
+    def usage_count(self) -> int:
+        return self.hosts.count() + self.devices.count()
+
+    def __repr__(self):
+        return f'<Credential {self.name}>'
+
+
 # ── 主機類型模板 ──
 class HostTemplate(db.Model):
-    """主機類型模板（Web Server / DB Server 等），可快速套用預設備份路徑。"""
     __tablename__ = 'host_templates'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -98,15 +161,11 @@ class HostTemplate(db.Model):
 
 
 class HostTemplatePath(db.Model):
-    """主機模板中的預設備份路徑（支援 Glob）。"""
     __tablename__ = 'host_template_paths'
 
     id = db.Column(db.Integer, primary_key=True)
     template_id = db.Column(db.Integer, db.ForeignKey('host_templates.id'), nullable=False)
     path = db.Column(db.String(512), nullable=False)
-
-    def __repr__(self):
-        return f'<HostTemplatePath {self.path}>'
 
 
 # ── Linux 主機 ──
@@ -117,8 +176,8 @@ class Host(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     ip_address = db.Column(db.String(45), nullable=False)
     port = db.Column(db.Integer, nullable=False, default=22)
-    username = db.Column(db.String(64), nullable=False)
-    password_enc = db.Column(db.Text, nullable=False, default='')  # Fernet 加密
+    credential_id = db.Column(db.Integer, db.ForeignKey('credentials.id'),
+                              nullable=False, index=True)
     description = db.Column(db.String(256))
 
     group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=True, index=True)
@@ -131,31 +190,26 @@ class Host(db.Model):
     file_paths = db.relationship('HostFilePath', backref='host',
                                  cascade='all, delete-orphan',
                                  order_by='HostFilePath.id')
-    backup_runs = db.relationship('BackupRun', backref='host', lazy='dynamic',
-                                  foreign_keys='BackupRun.host_id',
-                                  cascade='all, delete-orphan')
+    task_runs = db.relationship('TaskRun', backref='host', lazy='dynamic',
+                                foreign_keys='TaskRun.host_id',
+                                cascade='all, delete-orphan')
 
     @property
     def last_run_info(self):
-        """回傳最近一次 BackupRun（跨所有 BackupTask），無則 None。"""
-        return (self.backup_runs
-                .order_by(BackupRun.started_at.desc()).first())
+        return (self.task_runs.filter(TaskRun.type == 'backup')
+                .order_by(TaskRun.started_at.desc()).first())
 
     def __repr__(self):
         return f'<Host {self.name} {self.ip_address}>'
 
 
 class HostFilePath(db.Model):
-    """主機實際要備份的檔案路徑（支援 Glob，如 /etc/nginx/conf.d/*.conf）。"""
     __tablename__ = 'host_file_paths'
 
     id = db.Column(db.Integer, primary_key=True)
     host_id = db.Column(db.Integer, db.ForeignKey('hosts.id'), nullable=False)
     path = db.Column(db.String(512), nullable=False)
-    source = db.Column(db.String(20), default='manual')  # 'manual' | 'template'
-
-    def __repr__(self):
-        return f'<HostFilePath host={self.host_id} {self.path}>'
+    source = db.Column(db.String(20), default='manual')
 
 
 # ── 網路設備 ──
@@ -166,11 +220,10 @@ class Device(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     ip_address = db.Column(db.String(45), nullable=False)
     port = db.Column(db.Integer, nullable=False, default=22)
-    vendor = db.Column(db.String(30), nullable=False)         # cisco_ios / aruba_os / paloalto_panos
-    username = db.Column(db.String(64), nullable=False)
-    password_enc = db.Column(db.Text, nullable=False, default='')  # Fernet 加密
-    enable_password_enc = db.Column(db.Text, default='')           # Cisco enable 模式（選填）
-    backup_command = db.Column(db.String(256))                # 留空使用廠商預設指令
+    vendor = db.Column(db.String(30), nullable=False)
+    credential_id = db.Column(db.Integer, db.ForeignKey('credentials.id'),
+                              nullable=False, index=True)
+    backup_command = db.Column(db.String(256))
     description = db.Column(db.String(256))
 
     group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=True, index=True)
@@ -180,9 +233,14 @@ class Device(db.Model):
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
-    backup_runs = db.relationship('BackupRun', backref='device', lazy='dynamic',
-                                  foreign_keys='BackupRun.device_id',
-                                  cascade='all, delete-orphan')
+    task_runs = db.relationship('TaskRun', backref='device', lazy='dynamic',
+                                foreign_keys='TaskRun.device_id',
+                                cascade='all, delete-orphan')
+
+    @property
+    def last_run_info(self):
+        return (self.task_runs.filter(TaskRun.type == 'backup')
+                .order_by(TaskRun.started_at.desc()).first())
 
     @property
     def effective_command(self) -> str:
@@ -192,110 +250,68 @@ class Device(db.Model):
     def vendor_label(self) -> str:
         return VENDOR_LABEL.get(self.vendor, self.vendor)
 
-    @property
-    def last_run_info(self):
-        return (self.backup_runs
-                .order_by(BackupRun.started_at.desc()).first())
-
     def __repr__(self):
         return f'<Device {self.name} {self.vendor}>'
 
 
-# ── 備份執行紀錄 ──
-class BackupRun(db.Model):
-    """一次備份執行（手動或排程）。
-    - 主機：可能產生多筆 BackupRecord（多檔案）
-    - 設備：一筆 BackupRecord（running-config）
-    版本保留（retain_count）以 BackupRun 為單位。
+# ── 統一任務（single-table inheritance） ──
+class Task(db.Model):
+    """統一任務基底。
+
+    使用 SQLAlchemy single-table inheritance，子類 `BackupTask` / `EmailTask`
+    透過 `type` 欄位自動過濾，舊程式 `BackupTask.query` 語義不變。
     """
-    __tablename__ = 'backup_runs'
+    __tablename__ = 'tasks'
+    __mapper_args__ = {'polymorphic_on': 'type', 'polymorphic_identity': 'task'}
 
     id = db.Column(db.Integer, primary_key=True)
-    task_id = db.Column(db.Integer, db.ForeignKey('backup_tasks.id'), nullable=True, index=True)
-    target_type = db.Column(db.String(10), nullable=False, index=True)  # 'host' | 'device'
-    host_id = db.Column(db.Integer, db.ForeignKey('hosts.id'), nullable=True, index=True)
-    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=True, index=True)
-
-    status = db.Column(db.String(10), nullable=False, default='running', index=True)
-    # 'running' | 'success' | 'partial' | 'failed'
-    file_count = db.Column(db.Integer, nullable=False, default=0)
-    error_message = db.Column(db.Text)
-    triggered_by = db.Column(db.String(10), nullable=False, default='schedule')
-    # 'schedule' | 'manual' | 'api'
-
-    started_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
-                           nullable=False, index=True)
-    finished_at = db.Column(db.DateTime)
-
-    records = db.relationship('BackupRecord', backref='run',
-                              cascade='all, delete-orphan',
-                              order_by='BackupRecord.file_path')
-    alerts = db.relationship('BackupAlert', backref='run',
-                             cascade='all, delete-orphan')
-
-    @property
-    def target_name(self) -> str:
-        if self.target_type == 'host' and self.host:
-            return self.host.name
-        if self.target_type == 'device' and self.device:
-            return self.device.name
-        return '(deleted)'
-
-    def __repr__(self):
-        return f'<BackupRun {self.target_type}={self.host_id or self.device_id} {self.status}>'
-
-
-class BackupRecord(db.Model):
-    """BackupRun 中的單一檔案/設定快照。"""
-    __tablename__ = 'backup_records'
-
-    id = db.Column(db.Integer, primary_key=True)
-    run_id = db.Column(db.Integer, db.ForeignKey('backup_runs.id'), nullable=False, index=True)
-    file_path = db.Column(db.String(512), nullable=False)
-    # 主機：原始路徑（可能來自 Glob 展開後的具體路徑）
-    # 設備：固定為 'running-config'
-    storage_path = db.Column(db.String(512), nullable=False)  # 本地實體檔案絕對路徑
-    file_size = db.Column(db.Integer, nullable=False, default=0)
-    checksum = db.Column(db.String(64))                       # SHA256 hex
-    status = db.Column(db.String(10), nullable=False, default='success')  # 'success' | 'failed'
-    error_message = db.Column(db.Text)
-
-    def __repr__(self):
-        return f'<BackupRecord run={self.run_id} {self.file_path}>'
-
-
-# ── 備份任務（多目標排程） ──
-class BackupTask(db.Model):
-    """備份任務：綁定多台 Host 與／或 Device，共用同一排程設定。"""
-    __tablename__ = 'backup_tasks'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(10), nullable=False, index=True)  # 'backup' | 'email'
     description = db.Column(db.Text)
 
-    # 排程設定
+    # 排程
     schedule_mode = db.Column(db.String(10), nullable=False, default='advanced')
     # 'basic' | 'advanced' | 'once'
-    schedule_basic_params = db.Column(db.JSON)   # 僅 basic 模式使用
-    cron_expr = db.Column(db.String(50))         # basic/advanced
-    scheduled_at = db.Column(db.DateTime)        # once 模式（UTC naive）
-
-    retain_count = db.Column(db.Integer, nullable=False, default=10)
-    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
+    schedule_basic_params = db.Column(db.JSON)
+    cron_expr = db.Column(db.String(50))
+    scheduled_at = db.Column(db.DateTime)
 
     next_run = db.Column(db.DateTime, index=True)
     last_run = db.Column(db.DateTime)
-    last_status = db.Column(db.String(10))       # 'success' | 'partial' | 'failed'
+    last_status = db.Column(db.String(10))  # 'success' | 'partial' | 'failed'
+
+    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
+
+    # 權限／擁有者
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=True, index=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+
+    # backup-specific
+    retain_count = db.Column(db.Integer, nullable=False, default=10)
+
+    # email-specific
+    recipients = db.Column(db.Text)          # comma-separated
+    template_vars = db.Column(db.JSON, default=dict)
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
-    targets = db.relationship('BackupTaskTarget', backref='task',
+    # backup 關聯
+    targets = db.relationship('TaskTarget', backref='task',
                               cascade='all, delete-orphan',
-                              order_by='BackupTaskTarget.id')
-    backup_runs = db.relationship('BackupRun', backref='task', lazy='dynamic',
-                                  foreign_keys='BackupRun.task_id')
+                              order_by='TaskTarget.id')
+
+    # email 關聯
+    task_templates = db.relationship('TaskTemplate', backref='task',
+                                     order_by='TaskTemplate.order',
+                                     cascade='all, delete-orphan')
+
+    # 執行紀錄
+    runs = db.relationship('TaskRun', backref='task', lazy='dynamic',
+                           foreign_keys='TaskRun.task_id')
+
+    tags = db.relationship('Tag', secondary=task_tags, lazy='subquery')
 
     @property
     def host_ids(self) -> list[int]:
@@ -305,16 +321,30 @@ class BackupTask(db.Model):
     def device_ids(self) -> list[int]:
         return [t.device_id for t in self.targets if t.target_type == 'device']
 
+    @property
+    def templates(self):
+        return [tt.template for tt in self.task_templates]
+
     def __repr__(self):
-        return f'<BackupTask {self.name}>'
+        return f'<Task {self.type}:{self.name}>'
 
 
-class BackupTaskTarget(db.Model):
-    """任務 ↔ Host/Device 關聯（host_id 與 device_id 互斥）。"""
-    __tablename__ = 'backup_task_targets'
+class BackupTask(Task):
+    """備份型任務（polymorphic_identity='backup'）。`BackupTask.query` 自動過濾。"""
+    __mapper_args__ = {'polymorphic_identity': 'backup'}
+
+
+class EmailTask(Task):
+    """郵件型任務（polymorphic_identity='email'）。`EmailTask.query` 自動過濾。"""
+    __mapper_args__ = {'polymorphic_identity': 'email'}
+
+
+class TaskTarget(db.Model):
+    """備份任務 ↔ Host/Device 關聯（host_id 與 device_id 互斥）。"""
+    __tablename__ = 'task_targets'
 
     id = db.Column(db.Integer, primary_key=True)
-    task_id = db.Column(db.Integer, db.ForeignKey('backup_tasks.id'), nullable=False, index=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=False, index=True)
     target_type = db.Column(db.String(10), nullable=False)  # 'host' | 'device'
     host_id = db.Column(db.Integer, db.ForeignKey('hosts.id'), nullable=True, index=True)
     device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=True, index=True)
@@ -337,21 +367,194 @@ class BackupTaskTarget(db.Model):
         return t.name if t else '(deleted)'
 
 
-# ── 告警 ──
-class BackupAlert(db.Model):
-    """未讀告警，Dashboard 顯示 badge；指向失敗/部分失敗的 BackupRun。"""
-    __tablename__ = 'backup_alerts'
+BackupTaskTarget = TaskTarget  # 相容別名
+
+
+class TaskTemplate(db.Model):
+    """Email 任務的模板順序關聯。"""
+    __tablename__ = 'task_templates'
 
     id = db.Column(db.Integer, primary_key=True)
-    run_id = db.Column(db.Integer, db.ForeignKey('backup_runs.id'), nullable=False, index=True)
-    severity = db.Column(db.String(10), nullable=False, default='error')  # 'error' | 'warning'
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=False)
+    template_id = db.Column(db.Integer, db.ForeignKey('email_templates.id'), nullable=False)
+    order = db.Column(db.Integer, nullable=False, default=0)
+
+    template = db.relationship('EmailTemplate')
+
+
+# ── 執行紀錄（泛化） ──
+class TaskRun(db.Model):
+    """任一次任務執行（手動或排程）。
+
+    backup: 可能產生多筆 BackupRecord（多檔案），host_id 或 device_id 擇一填入
+    email : 一行紀錄即一次送信，recipients 存送出當下的收件清單
+    """
+    __tablename__ = 'task_runs'
+    __mapper_args__ = {'polymorphic_on': 'type', 'polymorphic_identity': 'task_run'}
+
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=True, index=True)
+    type = db.Column(db.String(10), nullable=False, index=True)  # 'backup' | 'email'
+
+    # backup-specific
+    target_type = db.Column(db.String(10), index=True)   # 'host' | 'device'
+    host_id = db.Column(db.Integer, db.ForeignKey('hosts.id'), nullable=True, index=True)
+    device_id = db.Column(db.Integer, db.ForeignKey('devices.id'), nullable=True, index=True)
+    file_count = db.Column(db.Integer, nullable=False, default=0)
+
+    # email-specific
+    recipients = db.Column(db.Text)
+
+    status = db.Column(db.String(10), nullable=False, default='running', index=True)
+    # 'running' | 'success' | 'partial' | 'failed'
+    error_message = db.Column(db.Text)
+    triggered_by = db.Column(db.String(10), nullable=False, default='schedule')
+    # 'schedule' | 'manual' | 'api'
+
+    started_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           nullable=False, index=True)
+    finished_at = db.Column(db.DateTime)
+
+    records = db.relationship('BackupRecord', backref='run',
+                              cascade='all, delete-orphan',
+                              order_by='BackupRecord.file_path')
+    alerts = db.relationship('TaskAlert', backref='run',
+                             cascade='all, delete-orphan')
+
+    @property
+    def target_name(self) -> str:
+        if self.type == 'email':
+            return (self.task.name if self.task else '(deleted)')
+        if self.target_type == 'host' and self.host:
+            return self.host.name
+        if self.target_type == 'device' and self.device:
+            return self.device.name
+        return '(deleted)'
+
+    def __repr__(self):
+        return f'<TaskRun {self.type} task={self.task_id} {self.status}>'
+
+
+class BackupRun(TaskRun):
+    """備份執行紀錄；`BackupRun.query` 自動過濾 type='backup'。"""
+    __mapper_args__ = {'polymorphic_identity': 'backup'}
+
+
+class EmailRun(TaskRun):
+    """寄送執行紀錄；`EmailRun.query` 自動過濾 type='email'。"""
+    __mapper_args__ = {'polymorphic_identity': 'email'}
+
+
+class BackupRecord(db.Model):
+    """BackupRun 中的單一檔案/設定快照（僅 backup 型任務）。"""
+    __tablename__ = 'backup_records'
+
+    id = db.Column(db.Integer, primary_key=True)
+    run_id = db.Column(db.Integer, db.ForeignKey('task_runs.id'), nullable=False, index=True)
+    file_path = db.Column(db.String(512), nullable=False)
+    storage_path = db.Column(db.String(512), nullable=False)
+    file_size = db.Column(db.Integer, nullable=False, default=0)
+    checksum = db.Column(db.String(64))
+    status = db.Column(db.String(10), nullable=False, default='success')
+    error_message = db.Column(db.Text)
+
+
+# ── 告警（泛化） ──
+class TaskAlert(db.Model):
+    """未讀告警，Dashboard 顯示 badge；指向失敗/部分失敗的 TaskRun（backup 或 email）。"""
+    __tablename__ = 'task_alerts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    run_id = db.Column(db.Integer, db.ForeignKey('task_runs.id'), nullable=False, index=True)
+    severity = db.Column(db.String(10), nullable=False, default='error')
     message = db.Column(db.Text, nullable=False)
     is_read = db.Column(db.Boolean, default=False, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            nullable=False, index=True)
 
-    def __repr__(self):
-        return f'<BackupAlert run={self.run_id} {self.severity}>'
+
+# 相容別名：`BackupAlert` 僅有一處使用（badge），直接等同 `TaskAlert`
+BackupAlert = TaskAlert
+# 相容別名：`BackupTaskTarget` == `TaskTarget`（非繼承類別，直接 alias）
+
+
+# ── 郵件模板 ──
+class EmailTemplate(db.Model):
+    __tablename__ = 'email_templates'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    subject = db.Column(db.String(200), nullable=False)
+    body_path = db.Column(db.String(256), nullable=False)
+    variables = db.Column(db.JSON, default=list)
+    scraper_vars = db.Column(db.JSON, default=dict)  # {var_name: scraper_id}
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    attachments = db.relationship('Attachment', backref='template',
+                                  order_by='Attachment.uploaded_at',
+                                  cascade='all, delete-orphan')
+    tags = db.relationship('Tag', secondary=template_tags, lazy='subquery')
+
+
+class Attachment(db.Model):
+    __tablename__ = 'attachments'
+
+    id = db.Column(db.Integer, primary_key=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('email_templates.id'), nullable=False)
+    filename = db.Column(db.String(256), nullable=False)
+    storage_path = db.Column(db.String(256), nullable=False)
+    file_size = db.Column(db.Integer, nullable=False)
+    mime_type = db.Column(db.String(100), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+# ── 爬蟲資料來源 ──
+class Scraper(db.Model):
+    __tablename__ = 'scrapers'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    url = db.Column(db.String(2048), nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    extract_type = db.Column(db.String(10), nullable=False)  # 'css' | 'regex' | 'js'
+    extract_pattern = db.Column(db.Text, nullable=False)
+    last_content = db.Column(db.Text)
+    last_checked = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    scraper_logs = db.relationship('ScraperLog', backref='scraper', lazy='dynamic',
+                                   cascade='all, delete-orphan')
+    tags = db.relationship('Tag', secondary=scraper_tags, lazy='subquery')
+
+
+class ScraperLog(db.Model):
+    __tablename__ = 'scraper_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    scraper_id = db.Column(db.Integer, db.ForeignKey('scrapers.id'), nullable=False, index=True)
+    status = db.Column(db.String(10), nullable=False)  # 'success' | 'error'
+    content = db.Column(db.Text)
+    error_message = db.Column(db.Text)
+    checked_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           nullable=False, index=True)
+
+
+# ── 個人分類標籤（email 側） ──
+class Tag(db.Model):
+    __tablename__ = 'tags'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    color = db.Column(db.String(20), nullable=False, default='secondary')
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('name', 'owner_id', name='uq_tag_name_owner'),)
 
 
 # ── 系統活動紀錄 ──
@@ -363,21 +566,16 @@ class LoginLog(db.Model):
     username   = db.Column(db.String(50), nullable=False)
     ip_address = db.Column(db.String(45), nullable=False)
     action     = db.Column(db.String(20), nullable=False, default='login')
-    # 'login' | 'logout' | 'password_changed' | 'password_reset'
-    status     = db.Column(db.String(10), nullable=False)  # 'success' / 'failed'
+    status     = db.Column(db.String(10), nullable=False)
     logged_at  = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            nullable=False, index=True)
 
-    def __repr__(self):
-        return f'<LoginLog {self.username} {self.action} {self.status}>'
 
-
-# ── 設定 KV 表 ──
+# ── 設定 KV ──
 class AppSetting(db.Model):
     __tablename__ = 'app_settings'
 
     key   = db.Column(db.String(64), primary_key=True)
     value = db.Column(db.Text, nullable=False, default='')
 
-    def __repr__(self):
-        return f'<AppSetting {self.key}>'
+

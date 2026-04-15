@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}爬蟲列表{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+  <h3 class="mb-0"><i class="bi bi-hdd-stack me-2"></i>資產</h3>
+  <a href="{{ url_for('scrapers.create') }}" class="btn btn-primary btn-sm ms-auto">
+    <i class="bi bi-plus-lg me-1"></i>新增爬蟲
+  </a>
+</div>
+
+{% with active_asset_tab = 'scrapers' %}{% include '_asset_tabs.html' %}{% endwith %}
+
+{% if all_tags %}
+<div class="mb-3 d-flex flex-wrap gap-1 align-items-center">
+  <span class="text-muted small me-1">篩選：</span>
+  <a href="{{ url_for('scrapers.index') }}" class="badge text-decoration-none {{ 'bg-dark' if not tag_filter else 'bg-secondary bg-opacity-50 text-dark' }}">全部</a>
+  {% for t in all_tags %}
+    <a href="{{ url_for('scrapers.index', tag=t.name) }}"
+       class="tag-chip tag-{{ t.color }} text-decoration-none {{ '' if tag_filter == t.name else 'opacity-50' }}">{{ t.name }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if scrapers.items %}
+<div class="mb-3">
+  <div class="input-group input-group-sm" style="max-width: 360px;">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" id="asset-filter-input" class="form-control"
+           placeholder="過濾本頁：名稱 / 標籤 / 擷取方式 …" autocomplete="off">
+  </div>
+</div>
+<div class="card p-0">
+  <table id="asset-filter-table" class="table table-hover mb-0">
+    <thead>
+      <tr>
+        <th class="text-center ps-3" style="width: 3rem;">#</th>
+        <th>名稱</th>
+        <th>標籤</th>
+        <th>擷取方式</th>
+        <th>上次執行</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in scrapers.items %}
+      <tr>
+        <td class="text-center text-muted small ps-3">{{ (scrapers.page - 1) * scrapers.per_page + loop.index }}</td>
+        <td>
+          <a href="{{ url_for('scrapers.detail', scraper_id=s.id) }}" class="fw-semibold text-decoration-none">{{ s.name }}</a>
+        </td>
+        <td>
+          {% for t in s.tags %}
+            <a href="{{ url_for('scrapers.index', tag=t.name) }}" class="tag-chip tag-{{ t.color }} text-decoration-none me-1">{{ t.name }}</a>
+          {% endfor %}
+        </td>
+        <td><span class="badge bg-secondary">{{ s.extract_type | upper }}</span></td>
+        <td class="small text-muted">{{ s.last_checked | localtime }}</td>
+        <td class="text-end pe-3">
+          <div class="d-flex gap-1 justify-content-end">
+            <form method="post" action="{{ url_for('scrapers.test', scraper_id=s.id) }}"
+                  class="d-inline" id="test-form-{{ s.id }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="button" class="btn btn-sm btn-outline-primary" title="立即測試"
+                      onclick="showConfirmModal('立即測試', '立即測試「{{ s.name }}」？（需等待頁面擷取完成）', function(){ document.getElementById('test-form-{{ s.id }}').submit(); })">
+                <i class="bi bi-play-circle"></i>
+              </button>
+            </form>
+            <a href="{{ url_for('scrapers.edit', scraper_id=s.id) }}" class="btn btn-sm btn-outline-secondary" title="編輯">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <form method="post" action="{{ url_for('scrapers.delete', scraper_id=s.id) }}"
+                  class="d-inline" id="delete-scraper-{{ s.id }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="button" class="btn btn-sm btn-outline-danger" title="刪除"
+                      onclick="showConfirmModal('刪除爬蟲', '確定刪除爬蟲「{{ s.name }}」？此操作無法復原。', function(){ document.getElementById('delete-scraper-{{ s.id }}').submit(); })">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if scrapers.pages > 1 %}
+<nav class="mt-3">
+  <ul class="pagination pagination-sm">
+    {% for p in scrapers.iter_pages() %}
+      {% if p %}
+        <li class="page-item {% if p == scrapers.page %}active{% endif %}">
+          <a class="page-link" href="?tag={{ tag_filter }}&page={{ p }}">{{ p }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-robot fs-1 d-block mb-2"></i>
+  尚無爬蟲項目。<a href="{{ url_for('scrapers.create') }}">立即新增</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const input = document.getElementById('asset-filter-input');
+    const table = document.getElementById('asset-filter-table');
+    if (input && table && window.CM) {
+        window.CM.initTableFilter(input, table);
+    }
+})();
+</script>
+{% endblock %}

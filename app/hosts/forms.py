@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import (BooleanField, IntegerField, PasswordField, SelectField,
+from wtforms import (BooleanField, IntegerField, SelectField,
                      StringField, SubmitField, TextAreaField)
 from wtforms.validators import (DataRequired, IPAddress, Length, NumberRange,
                                 Optional, Regexp)  # noqa: F401
@@ -16,11 +16,12 @@ class HostForm(FlaskForm):
         default=22,
         validators=[DataRequired(), NumberRange(min=1, max=65535)],
     )
-    username = StringField('SSH 使用者', validators=[DataRequired(), Length(max=64)])
-    password = PasswordField(
-        'SSH 密碼',
-        validators=[Optional(), Length(max=256)],
-        description='編輯時留白則保留原密碼',
+    credential_id = SelectField(
+        '登入驗證',
+        coerce=int,
+        choices=[],
+        validators=[DataRequired(message='請選擇一組驗證')],
+        description='於「設定 → 驗證庫」維護可共用的帳密',
     )
     description = StringField('備註', validators=[Optional(), Length(max=256)])
 

@@ -8,13 +8,13 @@ from flask import (abort, current_app, flash, jsonify, redirect,
 from flask_login import login_required
 
 from app import db
-from app.crypto import encrypt, safe_decrypt
+from app.crypto import safe_decrypt
 from app.groups.decorators import admin_required, user_can_access
 from app.hosts import bp
 from app.hosts.forms import (HostFilePathForm, HostForm, HostTemplateForm,
                              HostTemplatePathForm)
-from app.models import (BackupRecord, BackupRun, Group, Host, HostFilePath,
-                        HostTemplate, HostTemplatePath)
+from app.models import (BackupRecord, BackupRun, Credential, Group, Host,
+                        HostFilePath, HostTemplate, HostTemplatePath)
 from app.settings_store import get_ssh_timeout
 
 
@@ -25,6 +25,11 @@ def _load_form_choices(form: HostForm):
 
     templates = HostTemplate.query.order_by(HostTemplate.name).all()
     form.template_id.choices = [(0, '（不套用）')] + [(t.id, t.name) for t in templates]
+
+    creds = Credential.query.order_by(Credential.name).all()
+    form.credential_id.choices = (
+        [(0, '（請選擇）')] + [(c.id, f'{c.name} ({c.username})') for c in creds]
+    )
 
 
 def _apply_template(host: Host, template_id: int):
@@ -49,13 +54,14 @@ def create():
     if form.validate_on_submit():
         if Host.query.filter_by(name=form.name.data.strip()).first():
             flash('主機名稱已存在', 'danger')
+        elif not form.credential_id.data or not Credential.query.get(form.credential_id.data):
+            flash('請選擇有效的驗證', 'danger')
         else:
             host = Host(
                 name=form.name.data.strip(),
                 ip_address=form.ip_address.data.strip(),
                 port=form.port.data or 22,
-                username=form.username.data.strip(),
-                password_enc=encrypt(form.password.data or ''),
+                credential_id=form.credential_id.data,
                 description=(form.description.data or '').strip(),
                 group_id=(form.group_id.data or None) or None,
                 is_active=form.is_active.data,
@@ -81,20 +87,20 @@ def edit(host_id):
     if request.method == 'GET':
         form.group_id.data = host.group_id or 0
         form.template_id.data = 0
-        form.password.data = ''
+        form.credential_id.data = host.credential_id
 
     if form.validate_on_submit():
         new_name = form.name.data.strip()
         dup = Host.query.filter(Host.name == new_name, Host.id != host.id).first()
         if dup:
             flash('主機名稱已存在', 'danger')
+        elif not form.credential_id.data or not Credential.query.get(form.credential_id.data):
+            flash('請選擇有效的驗證', 'danger')
         else:
             host.name = new_name
             host.ip_address = form.ip_address.data.strip()
             host.port = form.port.data or 22
-            host.username = form.username.data.strip()
-            if form.password.data:
-                host.password_enc = encrypt(form.password.data)
+            host.credential_id = form.credential_id.data
             host.description = (form.description.data or '').strip()
             host.group_id = form.group_id.data or None
             host.is_active = form.is_active.data
@@ -236,7 +242,10 @@ def versions(host_id):
 def test_connection(host_id):
     host = Host.query.get_or_404(host_id)
     timeout = get_ssh_timeout()
-    password = safe_decrypt(host.password_enc)
+    if host.credential is None:
+        return jsonify(ok=False, message='主機未綁定驗證'), 400
+    password = safe_decrypt(host.credential.password_enc)
+    username = host.credential.username
 
     try:
         import paramiko  # 延遲載入
@@ -249,7 +258,7 @@ def test_connection(host_id):
         client.connect(
             hostname=host.ip_address,
             port=host.port,
-            username=host.username,
+            username=username,
             password=password,
             timeout=timeout,
             allow_agent=False,
