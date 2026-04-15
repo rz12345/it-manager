@@ -200,11 +200,3 @@ it-manager/
 | Palo Alto FW | `paloalto_panos` | `show config running` |
 
 > 每台設備可在 `Device.backup_command` 欄位覆寫預設指令（空值則使用上表預設）。
-
-## 整合來源
-
-本專案合併自：
-- `Y:/config-manager/`（網路設備與 Linux 主機組態備份）
-- `Y:/task-manager/`（Email 排程與 Web 爬蟲）
-
-匯入腳本為 `scripts/migrate_legacy.py`（config-manager 在衝突時勝出）；舊 DB 備份已於遷移完成後移除。
