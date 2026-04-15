@@ -79,6 +79,15 @@ crontab cron/crontab.example
 ```
 it-manager/
 ├── app/                        # Flask 應用程式（Blueprint 架構）
+│   ├── static/
+│   │   ├── css/
+│   │   │   ├── tokens.css      # 設計 tokens（亮/暗 CSS variables）
+│   │   │   ├── components.css  # 共用元件樣式（page_header/stat_card/responsive table/quick nav）
+│   │   │   └── style.css       # legacy 共用樣式（tag chip/row、stat-card 向後相容）
+│   │   ├── js/main.js          # Theme manager、Quick Nav、Toast、Confirm Modal、表單 spinner
+│   │   └── vendor/             # 本地化前端資產（Bootstrap 5.3.2 / Bootstrap Icons 1.11.3 / Chart.js 4.4.1）
+│   ├── templates/
+│   │   └── _macros.html        # 共用 Jinja macros（page_header / stat_card / status_badge / empty_row / confirm_delete_form / responsive_table / form_field / submit_button）
 │   ├── auth/                   # 登入、登出、初始設定
 │   ├── dashboard/              # 首頁儀表板（備份＋email 統計、告警摘要）
 │   ├── assets/                 # 資產總覽：hosts / devices / templates 三分頁

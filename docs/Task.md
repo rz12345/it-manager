@@ -2,6 +2,50 @@
 
 <!-- 格式：## YYYY-MM-DD，底下依分類列出完成項目 -->
 
+## 2026-04-15（前端 UI/UX 全站改進）
+
+### 資產本地化
+- 將 Bootstrap 5.3.2、Bootstrap Icons 1.11.3、Chart.js 4.4.1 下載至 `app/static/vendor/`，`base.html` 改用 `url_for('static', ...)`，擺脫 jsDelivr CDN 依賴（內網友善）。
+
+### 設計 tokens 與深色模式
+- 新增 `app/static/css/tokens.css` 定義亮／暗雙主題的 CSS variables（surface、border、text、tag 色票、陰影）。
+- `app/static/css/style.css` 全面將 hard-coded 色碼改用 tokens（tag 系統、設定頁 tag row、legacy stat-card）。
+- `base.html` 加入 FOUC-safe inline script：`localStorage['cm-theme']` 決定初始 theme，`auto` 時讀 `prefers-color-scheme`。
+- Navbar 新增 theme toggle dropdown（亮／深／跟隨系統），icon 動態反映 preference。
+- `main.js` 加入 theme manager：`setThemePref()`、監聽 `(prefers-color-scheme: dark)`、發出 `cm:theme-change` CustomEvent 供圖表重繪用。
+
+### 元件化（Jinja macros）
+- 新增 `app/templates/_macros.html`，集中：`page_header`（含 action slot）、`breadcrumb`、`stat_card`、`status_badge`、`active_badge`、`empty_row` / `empty_block`、`confirm_delete_form`（data-confirm）、`responsive_table_start/end`、`form_field`、`submit_button`、`search_input`。
+
+### 列表頁重構
+- `tasks/list.html`、`email_tasks/list.html` 重寫：改用 `page_header`、`stat_card`、`status_badge`、`confirm_delete_form` macro；表格套 `.cm-table-responsive .cm-stacked`（手機轉卡片布局，用 `data-label`）。
+- `email_tasks/list.html` 移除未定義的 `showConfirmModal` onclick handler 與重複的 local toast 實作，改走 `CM.confirmModal` / `CM.showToast`。
+- `main.js` 加入 `showConfirmModal(title, body, cb)` 向後相容 shim，確保 task-manager 繼承模板（`scrapers/*.html`、`templates_mgr/*.html`、`email_tasks/detail.html`）仍可用。
+
+### Confirm 一致化
+- 全專案 12 處 `onsubmit="return confirm(...)"` 原生 confirm 全數改為 `data-confirm` 屬性，統一走 `CM.confirmModal` bootstrap modal。影響檔案：`assets/index.html`（3）、`credentials/index.html`、`groups/list.html`、`hosts/detail.html`、`hosts/templates_detail.html`、`settings/edit.html`（5）。
+
+### Dashboard 強化
+- `app/dashboard/routes.py` 新增近 30 天每日 success/failed/partial 計數（backup 與 email 各一組），以 SQL `strftime('%Y-%m-%d')` group by 並以 `_fill_series()` 填補無資料日期。
+- `dashboard/index.html` 加入 Chart.js 折線圖（`canvas#trendChart`），theme 切換時透過 `cm:theme-change` 事件重建圖表、重讀色票。
+- Stat cards 全部改用 `stat_card` macro；backup tab 由原本兩行擴為四張卡片。
+- 儲存空間 progress bar 加 tooltip（顯示 breakdown）。
+- 「最近備份／寄送」表格狀態欄改用 `status_badge` macro。
+
+### 響應式與無障礙
+- `components.css` 新增 `.cm-stacked` 媒體查詢：≤767px 時 `<tr>` 轉為卡片、`<td[data-label]>` 以 pseudo-element 顯示欄位標籤。
+- Toast container 加 `role="status"` + `aria-live="polite"`。
+- Navbar icon-only 按鈕補 `aria-label`；確認 modal 與 quick-nav modal 加 `aria-labelledby`。
+
+### Quick Navigation
+- Navbar 新增搜尋按鈕（Ctrl+K / ⌘K 快速鍵），彈出 modal 搜尋頁面（儀表板、任務、資產 tab、紀錄 tab、郵件模板、爬蟲）。
+- 鍵盤操作：↑↓ 選取、Enter 跳轉、Esc 關閉；資料來源為 `<script id="cm-quicknav-data" type="application/json">`（由後端 `url_for` 產生）。
+
+### Form submit spinner
+- `main.js` 全站攔截 `<button data-loading-text="...">`，submit 時自動加 spinner + disable；`_macros.html` 的 `submit_button` macro 提供統一寫法。
+
+---
+
 ## 2026-04-15（紀錄頁分頁統一 + 驗證庫併入設定頁）
 
 ### 紀錄（Logs）路由統一為 `logs.index?tab={backup|email|user}`
