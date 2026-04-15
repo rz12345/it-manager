@@ -114,9 +114,6 @@
   3. `credential_id` 改 NOT NULL、drop 舊 username / password_enc / enable_password_enc
 - Downgrade 反向執行（複製帳密回 Host / Device 後 drop 表）
 
-### 舊資料匯入
-- `scripts/migrate_legacy.py`：先 `_get_or_create_credential` upsert，再把 FK 寫入 Host / Device
-
 ---
 
 ## 2026-04-15（config-manager + task-manager 整合為 it-manager）
@@ -150,12 +147,6 @@
 
 ### Migrations
 - 清空舊 migrations，`flask db migrate` 重新產生初始版本 `415065744b20_initial_unified_schema_it_manager`（24 張資料表）
-
-### 資料遷移（`scripts/migrate_legacy.py`）
-- 讀 `backups/legacy/{config_manager,mail_scheduler}.db`，以 id-remap 方式寫入新 schema
-- config-manager 在 username / app_setting key 衝突時勝出
-- 支援 `--dry-run` / `--force`；DATETIME / JSON 欄位自動解析
-- 實際匯入：1 user / 1 group / 3 hosts / 8 devices / 2 backup_tasks / 33 backup_runs / 90 backup_records / 6 alerts / 4 email_templates / 4 attachments / 2 scrapers / 2 email_tasks / 21 login_logs
 
 ### requirements.txt
 - 併入 `playwright==1.49.0` / `beautifulsoup4==4.12.3` / `lxml==5.2.1`

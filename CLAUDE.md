@@ -63,10 +63,6 @@ flask backups clean --mode orphans --dry-run
 flask backups clean --mode orphans --yes
 flask backups clean --mode all
 
-# 從舊專案（config-manager + task-manager）匯入資料至新 DB
-python -m scripts.migrate_legacy --dry-run
-python -m scripts.migrate_legacy
-
 # 手動觸發排程（測試用，會同時跑 backup 與 email 任務）
 python -m scheduler.runner
 
@@ -115,8 +111,6 @@ it-manager/
 │   ├── mailer.py               # SMTP + MIMEMultipart 寄送（單封 + 重試）
 │   ├── scraper.py              # Playwright + BS4 / regex / JS 擷取
 │   └── notifier.py             # 失敗告警（SMTP，任務型別不限）
-├── scripts/
-│   └── migrate_legacy.py       # 一次性：從 config-manager / task-manager 舊 DB 匯入
 ├── backups/
 │   ├── hosts/                  # {host_id}/{timestamp}_{filename}
 │   └── devices/                # {device_id}/{timestamp}_running.cfg
