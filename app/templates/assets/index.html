@@ -99,7 +99,7 @@
                         <form method="post"
                               action="{{ url_for('hosts.delete', host_id=h.id) }}"
                               class="d-inline"
-                              onsubmit="return confirm('確定刪除主機「{{ h.name }}」？此動作會一併刪除備份紀錄。');">
+                              data-confirm="確定刪除主機「{{ h.name }}」？此動作會一併刪除備份紀錄。">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                 <i class="bi bi-trash"></i>
@@ -190,7 +190,7 @@
                         <form method="post"
                               action="{{ url_for('devices.delete', device_id=d.id) }}"
                               class="d-inline"
-                              onsubmit="return confirm('確定刪除設備「{{ d.name }}」？此動作會一併刪除備份紀錄。');">
+                              data-confirm="確定刪除設備「{{ d.name }}」？此動作會一併刪除備份紀錄。">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                 <i class="bi bi-trash"></i>
@@ -255,7 +255,7 @@
                         <form method="post"
                               action="{{ url_for('hosts.templates_delete', template_id=t.id) }}"
                               class="d-inline"
-                              onsubmit="return confirm('確定刪除模板「{{ t.name }}」？已套用至主機的路徑不會被移除。');">
+                              data-confirm="確定刪除模板「{{ t.name }}」？已套用至主機的路徑不會被移除。">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                 <i class="bi bi-trash"></i>

@@ -1,7 +1,14 @@
 {% extends 'base.html' %}
+{% from '_macros.html' import page_header, stat_card, status_badge %}
 {% block title %}儀表板 — IT Manager{% endblock %}
+
+{% block head_extra %}
+<script src="{{ url_for('static', filename='vendor/chartjs/chart.umd.min.js') }}" defer></script>
+{% endblock %}
+
 {% block content %}
-<h3 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>儀表板</h3>
+
+{{ page_header('儀表板', icon='speedometer2') }}
 
 <ul class="nav nav-tabs mb-4">
     <li class="nav-item">
@@ -28,9 +35,13 @@
                 <span class="fw-semibold">已用 {{ storage.used|filesizeformat(true) }}</span>
                 <span class="text-muted">/ {{ storage.total|filesizeformat(true) }}</span>
                 {% if active_tab == 'email' %}
-                <span class="text-muted ms-2">（郵件模板附件 {{ storage.attachment_bytes|filesizeformat(true) }}，資料庫 {{ storage.db_bytes|filesizeformat(true) }}）</span>
+                <span class="text-muted ms-2" title="附件 {{ storage.attachment_bytes|filesizeformat(true) }} + 資料庫 {{ storage.db_bytes|filesizeformat(true) }}">
+                    （郵件模板附件 {{ storage.attachment_bytes|filesizeformat(true) }}，資料庫 {{ storage.db_bytes|filesizeformat(true) }}）
+                </span>
                 {% else %}
-                <span class="text-muted ms-2">（組態檔 {{ storage.config_bytes|filesizeformat(true) }}，資料庫 {{ storage.db_bytes|filesizeformat(true) }}）</span>
+                <span class="text-muted ms-2" title="組態檔 {{ storage.config_bytes|filesizeformat(true) }} + 資料庫 {{ storage.db_bytes|filesizeformat(true) }}">
+                    （組態檔 {{ storage.config_bytes|filesizeformat(true) }}，資料庫 {{ storage.db_bytes|filesizeformat(true) }}）
+                </span>
                 {% endif %}
             </span>
         </div>
@@ -50,45 +61,36 @@
 
 {% if active_tab == 'backup' %}
 <div class="row g-3 mb-4">
-    <div class="col-md-6 col-sm-6">
-        <div class="card stat-card stat-info border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">Linux 主機</div>
-                <div class="stat-value">{{ host_count }}</div>
-                <a href="{{ url_for('assets.index', tab='hosts') }}" class="stretched-link small"></a>
-            </div>
-        </div>
+    <div class="col-md-3 col-sm-6">
+        {{ stat_card('Linux 主機', host_count, icon='hdd-stack', variant='info',
+            href=url_for('assets.index', tab='hosts')) }}
     </div>
-    <div class="col-md-6 col-sm-6">
-        <div class="card stat-card stat-info border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">網路設備</div>
-                <div class="stat-value">{{ device_count }}</div>
-                <a href="{{ url_for('assets.index', tab='devices') }}" class="stretched-link small"></a>
-            </div>
-        </div>
+    <div class="col-md-3 col-sm-6">
+        {{ stat_card('網路設備', device_count, icon='router', variant='info',
+            href=url_for('assets.index', tab='devices')) }}
     </div>
-    <div class="col-md-6 col-sm-6">
-        <div class="card stat-card stat-success border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">啟用中排程</div>
-                <div class="stat-value">
-                    <span>{{ active_schedules }}</span>
-                    <span class="text-muted">/ {{ total_schedules }}</span>
-                </div>
-            </div>
-        </div>
+    <div class="col-md-3 col-sm-6">
+        {{ stat_card('啟用中排程', active_schedules, icon='toggle-on',
+            variant='success', suffix='/ ' ~ total_schedules) }}
     </div>
-    <div class="col-md-6 col-sm-6">
-        <div class="card stat-card {% if success_week < runs_week %}stat-danger{% else %}stat-success{% endif %} border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">1 週備份（成功 / 總數）</div>
-                <div class="stat-value">
-                    <span class="{% if success_week < runs_week %}text-danger{% else %}text-success{% endif %}">{{ success_week }}</span>
-                    <span class="text-muted">/ {{ runs_week }}</span>
-                </div>
-            </div>
-        </div>
+    <div class="col-md-3 col-sm-6">
+        {{ stat_card('1 週備份（成功 / 總數）', success_week, icon='check-circle',
+            variant=(success_week < runs_week and 'danger' or 'success'),
+            suffix='/ ' ~ runs_week) }}
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white fw-semibold d-flex align-items-center">
+        <i class="bi bi-graph-up me-1"></i>近 30 天備份趨勢
+        <span class="ms-auto small text-muted">每日成功／失敗／部分</span>
+    </div>
+    <div class="card-body">
+        <canvas id="trendChart" height="80"
+                data-labels='{{ daily_backup.labels|tojson }}'
+                data-success='{{ daily_backup.s|tojson }}'
+                data-failed='{{ daily_backup.f|tojson }}'
+                data-partial='{{ daily_backup.p|tojson }}'></canvas>
     </div>
 </div>
 
@@ -97,7 +99,7 @@
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white fw-semibold d-flex align-items-center">
                 <i class="bi bi-calendar-event me-1"></i>即將執行
-                <a href="{{ url_for('tasks.index', tab='backup') }}" class="ms-auto small">全部 &raquo;</a>
+                <a href="{{ url_for('tasks.index') }}" class="ms-auto small">全部 &raquo;</a>
             </div>
             <ul class="list-group list-group-flush small">
                 {% for t in upcoming_tasks %}
@@ -145,13 +147,7 @@
                                 <i class="bi bi-{{ 'hdd-stack' if r.target_type == 'host' else 'router' }}"></i>
                                 {{ r.target_name }}
                             </td>
-                            <td class="text-center">
-                                {% if r.status == 'success' %}<span class="badge bg-success">成功</span>
-                                {% elif r.status == 'partial' %}<span class="badge bg-warning">部分</span>
-                                {% elif r.status == 'failed' %}<span class="badge bg-danger">失敗</span>
-                                {% elif r.status == 'running' %}<span class="badge bg-secondary">執行中</span>
-                                {% endif %}
-                            </td>
+                            <td class="text-center">{{ status_badge(r.status) }}</td>
                             <td class="text-center">{{ r.file_count }}</td>
                         </tr>
                     {% else %}
@@ -188,7 +184,7 @@
                         </div>
                         <form method="post" action="{{ url_for('dashboard.mark_alert_read', alert_id=a.id) }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button class="btn btn-sm btn-link text-muted" title="標為已讀">
+                            <button class="btn btn-sm btn-link text-muted" title="標為已讀" aria-label="標為已讀">
                                 <i class="bi bi-check2"></i>
                             </button>
                         </form>
@@ -208,26 +204,26 @@
 {# ── Email tab ── #}
 <div class="row g-3 mb-4">
     <div class="col-md-6 col-sm-6">
-        <div class="card stat-card stat-success border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">啟用中 Email 任務</div>
-                <div class="stat-value">
-                    <span>{{ email_active }}</span>
-                    <span class="text-muted">/ {{ email_total }}</span>
-                </div>
-            </div>
-        </div>
+        {{ stat_card('啟用中 Email 任務', email_active, icon='toggle-on',
+            variant='success', suffix='/ ' ~ email_total) }}
     </div>
     <div class="col-md-6 col-sm-6">
-        <div class="card stat-card {% if email_success_week < email_runs_week %}stat-danger{% else %}stat-success{% endif %} border-0 shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">1 週寄送（成功 / 總數）</div>
-                <div class="stat-value">
-                    <span class="{% if email_success_week < email_runs_week %}text-danger{% else %}text-success{% endif %}">{{ email_success_week }}</span>
-                    <span class="text-muted">/ {{ email_runs_week }}</span>
-                </div>
-            </div>
-        </div>
+        {{ stat_card('1 週寄送（成功 / 總數）', email_success_week, icon='check-circle',
+            variant=(email_success_week < email_runs_week and 'danger' or 'success'),
+            suffix='/ ' ~ email_runs_week) }}
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white fw-semibold d-flex align-items-center">
+        <i class="bi bi-graph-up me-1"></i>近 30 天寄送趨勢
+        <span class="ms-auto small text-muted">每日成功／失敗</span>
+    </div>
+    <div class="card-body">
+        <canvas id="trendChart" height="80"
+                data-labels='{{ daily_email.labels|tojson }}'
+                data-success='{{ daily_email.s|tojson }}'
+                data-failed='{{ daily_email.f|tojson }}'></canvas>
     </div>
 </div>
 
@@ -236,7 +232,7 @@
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white fw-semibold d-flex align-items-center">
                 <i class="bi bi-calendar-event me-1"></i>即將執行
-                <a href="{{ url_for('tasks.index', tab='email') }}" class="ms-auto small">全部 &raquo;</a>
+                <a href="{{ url_for('email_tasks.index') }}" class="ms-auto small">全部 &raquo;</a>
             </div>
             <ul class="list-group list-group-flush small">
                 {% for t in email_upcoming %}
@@ -275,13 +271,7 @@
                         <tr>
                             <td>{{ r.started_at|localtime('%m-%d %H:%M') }}</td>
                             <td><i class="bi bi-envelope"></i> {{ r.target_name }}</td>
-                            <td class="text-center">
-                                {% if r.status == 'success' %}<span class="badge bg-success">成功</span>
-                                {% elif r.status == 'failed' %}<span class="badge bg-danger">失敗</span>
-                                {% elif r.status == 'running' %}<span class="badge bg-secondary">執行中</span>
-                                {% else %}<span class="badge bg-warning">{{ r.status }}</span>
-                                {% endif %}
-                            </td>
+                            <td class="text-center">{{ status_badge(r.status) }}</td>
                         </tr>
                     {% else %}
                         <tr><td colspan="3" class="text-center text-muted py-3">尚無寄送紀錄</td></tr>
@@ -317,7 +307,7 @@
                         </div>
                         <form method="post" action="{{ url_for('dashboard.mark_alert_read', alert_id=a.id) }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button class="btn btn-sm btn-link text-muted" title="標為已讀">
+                            <button class="btn btn-sm btn-link text-muted" title="標為已讀" aria-label="標為已讀">
                                 <i class="bi bi-check2"></i>
                             </button>
                         </form>
@@ -334,4 +324,69 @@
 </div>
 {% endif %}
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    function themeColors() {
+        const styles = getComputedStyle(document.documentElement);
+        return {
+            text:   styles.getPropertyValue('--cm-text').trim() || '#212529',
+            muted:  styles.getPropertyValue('--cm-text-muted').trim() || '#6c757d',
+            grid:   styles.getPropertyValue('--cm-border').trim() || '#e5e7eb',
+            success: styles.getPropertyValue('--cm-success').trim() || '#198754',
+            danger:  styles.getPropertyValue('--cm-danger').trim() || '#dc3545',
+            warning: styles.getPropertyValue('--cm-warning').trim() || '#ffc107',
+        };
+    }
+
+    function build(canvas) {
+        if (!canvas || typeof Chart === 'undefined') return null;
+        const labels  = JSON.parse(canvas.dataset.labels  || '[]');
+        const success = JSON.parse(canvas.dataset.success || '[]');
+        const failed  = JSON.parse(canvas.dataset.failed  || '[]');
+        const partial = canvas.dataset.partial ? JSON.parse(canvas.dataset.partial) : null;
+        const c = themeColors();
+        const datasets = [
+            {label: '成功', data: success, borderColor: c.success, backgroundColor: c.success + '33', tension: 0.3, fill: true},
+            {label: '失敗', data: failed,  borderColor: c.danger,  backgroundColor: c.danger + '33',  tension: 0.3, fill: true},
+        ];
+        if (partial) {
+            datasets.push({label: '部分', data: partial, borderColor: c.warning, backgroundColor: c.warning + '33', tension: 0.3, fill: true});
+        }
+        return new Chart(canvas, {
+            type: 'line',
+            data: {labels, datasets},
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {mode: 'index', intersect: false},
+                plugins: {
+                    legend: {labels: {color: c.text}},
+                    tooltip: {mode: 'index', intersect: false},
+                },
+                scales: {
+                    x: {ticks: {color: c.muted, maxRotation: 0, autoSkip: true, maxTicksLimit: 10}, grid: {color: c.grid}},
+                    y: {ticks: {color: c.muted, precision: 0}, grid: {color: c.grid}, beginAtZero: true},
+                },
+            },
+        });
+    }
+
+    let chart;
+    function render() {
+        const canvas = document.getElementById('trendChart');
+        if (chart) { chart.destroy(); chart = null; }
+        chart = build(canvas);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', render);
+    } else {
+        render();
+    }
+    document.addEventListener('cm:theme-change', render);
+})();
+</script>
 {% endblock %}

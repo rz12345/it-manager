@@ -45,7 +45,7 @@
                         <form method="post"
                               action="{{ url_for('groups.delete', group_id=r.group.id) }}"
                               class="d-inline"
-                              onsubmit="return confirm('確定刪除分組「{{ r.group.name }}」？');">
+                              data-confirm="確定刪除分組「{{ r.group.name }}」？">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                 <i class="bi bi-trash"></i>

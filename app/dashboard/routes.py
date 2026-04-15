@@ -185,12 +185,51 @@ def index():
                               EmailTask.next_run.isnot(None))
                       .order_by(EmailTask.next_run.asc()).limit(10).all())
 
+    # ── 近 30 天每日趨勢（供 Chart.js 使用） ──
+    thirty_days_ago = now - timedelta(days=30)
+    day_b = func.strftime('%Y-%m-%d', BackupRun.started_at)
+    backup_rows = (db.session.query(
+        day_b.label('d'),
+        func.sum(case((BackupRun.status == 'success', 1), else_=0)).label('s'),
+        func.sum(case((BackupRun.status == 'failed',  1), else_=0)).label('f'),
+        func.sum(case((BackupRun.status == 'partial', 1), else_=0)).label('p'),
+    )
+    .filter(BackupRun.id.in_(db.session.query(visible_run_ids_subq)),
+            BackupRun.started_at >= thirty_days_ago)
+    .group_by(day_b).order_by(day_b).all())
+
+    day_e = func.strftime('%Y-%m-%d', EmailRun.started_at)
+    email_rows = (db.session.query(
+        day_e.label('d'),
+        func.sum(case((EmailRun.status == 'success', 1), else_=0)).label('s'),
+        func.sum(case((EmailRun.status == 'failed',  1), else_=0)).label('f'),
+    )
+    .filter(EmailRun.task_id.in_(db.session.query(email_visible_ids_subq)),
+            EmailRun.started_at >= thirty_days_ago)
+    .group_by(day_e).order_by(day_e).all())
+
+    def _fill_series(rows, keys):
+        by_day = {r.d: r for r in rows}
+        labels, series = [], {k: [] for k in keys}
+        for i in range(29, -1, -1):
+            d = (now - timedelta(days=i)).strftime('%Y-%m-%d')
+            labels.append(d[5:])  # MM-DD
+            row = by_day.get(d)
+            for k in keys:
+                series[k].append(int(getattr(row, k) or 0) if row else 0)
+        return {'labels': labels, **series}
+
+    daily_backup = _fill_series(backup_rows, ['s', 'f', 'p'])
+    daily_email = _fill_series(email_rows, ['s', 'f'])
+
     storage = _storage_stats() if current_user.is_admin else None
     active_tab = request.args.get('tab', 'backup')
     if active_tab not in ('backup', 'email'):
         active_tab = 'backup'
 
     return render_template('dashboard/index.html',
+                           daily_backup=daily_backup,
+                           daily_email=daily_email,
                            host_count=host_count,
                            device_count=device_count,
                            active_schedules=active_schedules,

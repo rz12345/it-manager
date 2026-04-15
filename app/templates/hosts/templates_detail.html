@@ -46,7 +46,7 @@
                     <code class="flex-grow-1">{{ tp.path }}</code>
                     <form method="post"
                           action="{{ url_for('hosts.templates_delete_path', template_id=template.id, path_id=tp.id) }}"
-                          onsubmit="return confirm('移除此預設路徑？');">
+                          data-confirm="移除此預設路徑？">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="btn btn-sm btn-outline-danger" type="submit">
                             <i class="bi bi-x-lg"></i>

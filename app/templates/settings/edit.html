@@ -57,7 +57,7 @@
 <div class="d-flex align-items-center justify-content-between">
     <form method="post" action="{{ url_for('settings.test_email') }}"
           class="d-flex align-items-center gap-2 m-0"
-          onsubmit="return confirm('將以目前儲存的 SMTP 設定寄送測試信至「告警收件者 Email」，確定執行？');">
+          data-confirm="將以目前儲存的 SMTP 設定寄送測試信至「告警收件者 Email」，確定執行？">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-outline-secondary">
             <i class="bi bi-send-check me-1"></i>測試寄信
@@ -131,7 +131,7 @@
                     </button>
                     <form method="post" action="{{ url_for('settings.delete_tag', tag_id=tag.id) }}"
                           id="delete-tag-{{ tag.id }}" style="display:contents;"
-                          onsubmit="return confirm('確定刪除標籤「{{ tag.name }}」？');">
+                          data-confirm="確定刪除標籤「{{ tag.name }}」？">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="tag-action-btn" title="刪除"
                                 onclick="event.stopPropagation();">
@@ -178,7 +178,7 @@
 
                 <form method="post" action="{{ url_for('settings.delete_tag', tag_id=tag.id) }}"
                       id="delete-tag-edit-{{ tag.id }}"
-                      onsubmit="return confirm('確定刪除標籤「{{ tag.name }}」？');">
+                      data-confirm="確定刪除標籤「{{ tag.name }}」？">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="tag-edit-btn-delete w-100">
                         <i class="bi bi-trash me-1"></i>刪除標籤
@@ -255,7 +255,7 @@
                                 {% if u.id != current_user.id %}
                                 <form method="post" action="{{ url_for('settings.delete_user', user_id=u.id) }}"
                                       id="delete-user-{{ u.id }}" style="display:inline"
-                                      onsubmit="return confirm('確定刪除帳號「{{ u.username }}」？此操作無法復原。');">
+                                      data-confirm="確定刪除帳號「{{ u.username }}」？此操作無法復原。">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger" title="刪除">
                                         <i class="bi bi-trash"></i>
@@ -459,7 +459,7 @@
                         <form method="post"
                               action="{{ url_for('groups.delete', group_id=r.group.id) }}"
                               class="d-inline"
-                              onsubmit="return confirm('確定刪除分組「{{ r.group.name }}」？');">
+                              data-confirm="確定刪除分組「{{ r.group.name }}」？">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                 <i class="bi bi-trash"></i>

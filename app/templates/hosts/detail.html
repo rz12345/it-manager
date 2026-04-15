@@ -92,7 +92,7 @@
                             {% if current_user.is_admin %}
                             <form method="post"
                                   action="{{ url_for('hosts.delete_path', host_id=host.id, path_id=fp.id) }}"
-                                  onsubmit="return confirm('移除此備份路徑？');">
+                                  data-confirm="移除此備份路徑？">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button class="btn btn-sm btn-outline-danger" type="submit">
                                     <i class="bi bi-x-lg"></i>
