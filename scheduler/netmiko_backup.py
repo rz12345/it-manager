@@ -112,13 +112,23 @@ def run_device_backup(device_id: int, task_id: int | None = None,
                 except Exception:
                     pass
             try:
-                output = conn.send_command(command, read_timeout=timeout)
+                if device.vendor == 'paloalto_panos':
+                    # PAN-OS XML 輸出首行 <response status="success"> 結尾的 '>'
+                    # 會觸發 Netmiko prompt 正則，導致 send_command 回傳空字串。
+                    # 改走 timing 模式（不靠 prompt，以靜默判斷結束）。
+                    output = conn.send_command_timing(command,
+                                                      read_timeout=timeout,
+                                                      last_read=4.0)
+                else:
+                    output = conn.send_command(command, read_timeout=timeout)
             except Exception:
                 # prompt 偵測失敗 → 改用 timing 模式（不靠 prompt，以輸出
                 # 靜默判斷結束），對 Aruba/老舊韌體最可靠
                 output = conn.send_command_timing(command,
                                                   read_timeout=timeout,
                                                   last_read=4.0)
+            if output is not None and not output.strip():
+                run_error = '備份指令回傳空內容（可能 prompt 偵測誤判或分頁未關閉）'
     except NetmikoAuthenticationException as e:
         run_error = f'認證失敗：{e}'
     except NetmikoTimeoutException as e:
