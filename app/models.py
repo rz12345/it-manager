@@ -112,6 +112,8 @@ class Group(db.Model):
     hosts = db.relationship('Host', backref='group', lazy='dynamic')
     devices = db.relationship('Device', backref='group', lazy='dynamic')
     tasks = db.relationship('Task', backref='group', lazy='dynamic')
+    email_templates = db.relationship('EmailTemplate', backref='group', lazy='dynamic')
+    scrapers = db.relationship('Scraper', backref='group', lazy='dynamic')
 
     def __repr__(self):
         return f'<Group {self.name}>'
@@ -491,6 +493,7 @@ class EmailTemplate(db.Model):
     variables = db.Column(db.JSON, default=list)
     scraper_vars = db.Column(db.JSON, default=dict)  # {var_name: scraper_id}
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc), nullable=False)
@@ -521,6 +524,7 @@ class Scraper(db.Model):
     name = db.Column(db.String(100), nullable=False)
     url = db.Column(db.String(2048), nullable=False)
     owner_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=True, index=True)
     extract_type = db.Column(db.String(10), nullable=False)  # 'css' | 'regex' | 'js'
     extract_pattern = db.Column(db.Text, nullable=False)
     last_content = db.Column(db.Text)

@@ -36,6 +36,7 @@
         <th class="text-center ps-3" style="width: 3rem;">#</th>
         <th>名稱</th>
         <th>標籤</th>
+        <th>分組</th>
         <th>主旨</th>
         <th>附件</th>
         <th>更新時間</th>
@@ -54,6 +55,7 @@
             <a href="{{ url_for('templates_mgr.index', tag=t.name) }}" class="tag-chip tag-{{ t.color }} text-decoration-none me-1">{{ t.name }}</a>
           {% endfor %}
         </td>
+        <td class="small text-muted">{{ tmpl.group.name if tmpl.group else '—' }}</td>
         <td class="small text-muted">{{ rendered_subjects[tmpl.id] }}</td>
         <td>
           {% set att_count = tmpl.attachments | length %}

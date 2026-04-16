@@ -36,6 +36,7 @@
         <th class="text-center ps-3" style="width: 3rem;">#</th>
         <th>名稱</th>
         <th>標籤</th>
+        <th>分組</th>
         <th>擷取方式</th>
         <th>上次執行</th>
         <th></th>
@@ -53,6 +54,7 @@
             <a href="{{ url_for('scrapers.index', tag=t.name) }}" class="tag-chip tag-{{ t.color }} text-decoration-none me-1">{{ t.name }}</a>
           {% endfor %}
         </td>
+        <td class="small text-muted">{{ s.group.name if s.group else '—' }}</td>
         <td><span class="badge bg-secondary">{{ s.extract_type | upper }}</span></td>
         <td class="small text-muted">{{ s.last_checked | localtime }}</td>
         <td class="text-end pe-3">

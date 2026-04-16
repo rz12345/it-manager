@@ -68,8 +68,17 @@ def _basic_to_cron(frequency, time_str, day=None, week=None):
 
 
 def _template_choices():
-    return [(t.id, t.name) for t in EmailTemplate.query.filter_by(
-        owner_id=current_user.id).order_by(EmailTemplate.name).all()]
+    if current_user.is_admin:
+        q = EmailTemplate.query
+    else:
+        gids = current_user.group_ids or []
+        if gids:
+            q = EmailTemplate.query.filter(db.or_(
+                EmailTemplate.owner_id == current_user.id,
+                EmailTemplate.group_id.in_(gids)))
+        else:
+            q = EmailTemplate.query.filter_by(owner_id=current_user.id)
+    return [(t.id, t.name) for t in q.order_by(EmailTemplate.name).all()]
 
 
 def _save_task_templates(task, template_ids):

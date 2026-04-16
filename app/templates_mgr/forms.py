@@ -1,7 +1,7 @@
 import json
 
 from flask_wtf import FlaskForm
-from wtforms import HiddenField, MultipleFileField, StringField, SubmitField, TextAreaField
+from wtforms import HiddenField, MultipleFileField, SelectField, StringField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, Length, Optional, ValidationError
 
 
@@ -11,6 +11,7 @@ from app.config import Config
 class TemplateForm(FlaskForm):
     name = StringField('模板名稱', validators=[DataRequired(), Length(1, 100)])
     tags = StringField('標籤（逗號分隔）', validators=[Optional(), Length(max=200)])
+    group_id = SelectField('分組（可讓同組成員檢視）', coerce=int, validators=[Optional()])
     subject = StringField('郵件主旨', validators=[DataRequired(), Length(1, 200)])
     body = TextAreaField('HTML 內容', validators=[DataRequired()])
     variables = StringField('可用變數（逗號分隔，例：name,date）', validators=[Optional()])

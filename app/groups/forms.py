@@ -18,7 +18,7 @@ class GroupForm(FlaskForm):
         validators=[Optional(), Length(max=256)],
     )
     members = _MultiCheckboxField(
-        '成員（勾選後該使用者可存取此分組的 Host / Device）',
+        '成員',
         coerce=int,
         choices=[],
     )

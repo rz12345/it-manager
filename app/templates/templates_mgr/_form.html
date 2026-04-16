@@ -13,6 +13,12 @@
 </div>
 
 <div class="mb-3">
+  {{ form.group_id.label(class='form-label') }}
+  {{ form.group_id(class='form-select') }}
+  <div class="form-text">指派分組後，該組成員也可檢視/編輯此模板</div>
+</div>
+
+<div class="mb-3">
   {{ form.subject.label(class='form-label') }}
   {{ form.subject(class='form-control' + (' is-invalid' if form.subject.errors else ''), placeholder='您好 {{ name }}，以下是本週報告') }}
   {% for e in form.subject.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}

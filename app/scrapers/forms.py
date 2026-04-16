@@ -1,13 +1,14 @@
 import re
 
 from flask_wtf import FlaskForm
-from wtforms import RadioField, StringField, SubmitField, TextAreaField
+from wtforms import RadioField, SelectField, StringField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, Length, Optional, URL, ValidationError
 
 
 class ScraperForm(FlaskForm):
     name = StringField('爬蟲名稱', validators=[DataRequired(), Length(1, 100)])
     tags = StringField('標籤（逗號分隔）', validators=[Optional(), Length(max=200)])
+    group_id = SelectField('分組（可讓同組成員檢視）', coerce=int, validators=[Optional()])
     url = StringField('目標 URL', validators=[DataRequired(), URL(), Length(max=2048)])
     extract_type = RadioField(
         '擷取方式',

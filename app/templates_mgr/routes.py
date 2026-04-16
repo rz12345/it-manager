@@ -8,9 +8,39 @@ from flask_login import current_user, login_required
 
 from app import db
 from app.config import Config
-from app.models import Attachment, EmailTemplate, Scraper, Tag, _tag_color, template_tags
+from app.models import Attachment, EmailTemplate, Group, Scraper, Tag, _tag_color, template_tags
 from app.templates_mgr import bp
 from app.templates_mgr.forms import TemplateForm
+
+
+def _user_can_access_template(tmpl) -> bool:
+    if tmpl is None:
+        return False
+    if current_user.is_admin:
+        return True
+    if tmpl.owner_id == current_user.id:
+        return True
+    return tmpl.group_id is not None and tmpl.group_id in (current_user.group_ids or [])
+
+
+def _visible_templates_query():
+    q = EmailTemplate.query
+    if current_user.is_admin:
+        return q
+    gids = current_user.group_ids or []
+    if gids:
+        return q.filter(db.or_(EmailTemplate.owner_id == current_user.id,
+                               EmailTemplate.group_id.in_(gids)))
+    return q.filter(EmailTemplate.owner_id == current_user.id)
+
+
+def _populate_group_choices(form):
+    if current_user.is_admin:
+        groups = Group.query.order_by(Group.name).all()
+    else:
+        gids = current_user.group_ids or []
+        groups = Group.query.filter(Group.id.in_(gids)).order_by(Group.name).all() if gids else []
+    form.group_id.choices = [(0, '— 無（僅擁有者可見）—')] + [(g.id, g.name) for g in groups]
 
 
 def _parse_tags(tag_str, owner_id):
@@ -26,8 +56,17 @@ def _parse_tags(tag_str, owner_id):
 
 
 def _scraper_choices():
-    return [(s.id, s.name) for s in Scraper.query.filter_by(
-        owner_id=current_user.id).order_by(Scraper.name).all()]
+    if current_user.is_admin:
+        q = Scraper.query
+    else:
+        gids = current_user.group_ids or []
+        if gids:
+            q = Scraper.query.filter(db.or_(
+                Scraper.owner_id == current_user.id,
+                Scraper.group_id.in_(gids)))
+        else:
+            q = Scraper.query.filter_by(owner_id=current_user.id)
+    return [(s.id, s.name) for s in q.order_by(Scraper.name).all()]
 
 # 使用絕對路徑，避免因工作目錄不同導致讀寫路徑對不上
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -83,7 +122,7 @@ def index():
 
     page = request.args.get('page', 1, type=int)
     tag_filter = request.args.get('tag', '')
-    query = EmailTemplate.query.filter_by(owner_id=current_user.id)
+    query = _visible_templates_query()
     if tag_filter:
         query = query.filter(EmailTemplate.tags.any(Tag.name == tag_filter))
     templates = query.order_by(EmailTemplate.created_at.desc()).paginate(page=page, per_page=20)
@@ -110,6 +149,7 @@ def index():
 @login_required
 def create():
     form = TemplateForm()
+    _populate_group_choices(form)
     if form.validate_on_submit():
         tmpl = EmailTemplate(
             name=form.name.data,
@@ -118,6 +158,7 @@ def create():
             variables=[],
             scraper_vars=json.loads(form.scraper_vars.data or '{}'),
             owner_id=current_user.id,
+            group_id=form.group_id.data or None,
         )
         db.session.add(tmpl)
         db.session.flush()
@@ -145,21 +186,24 @@ def create():
 @login_required
 def edit(tmpl_id):
     tmpl = db.session.get(EmailTemplate, tmpl_id)
-    if tmpl is None or tmpl.owner_id != current_user.id:
+    if not _user_can_access_template(tmpl):
         abort(404)
 
     form = TemplateForm(obj=tmpl)
+    _populate_group_choices(form)
     if request.method == 'GET':
         form.body.data = _read_body(tmpl)
         form.scraper_vars.data = json.dumps(tmpl.scraper_vars or {})
         form.tags.data = ', '.join(t.name for t in tmpl.tags)
+        form.group_id.data = tmpl.group_id or 0
 
     if form.validate_on_submit():
         tmpl.name = form.name.data
         tmpl.subject = form.subject.data
         tmpl.scraper_vars = json.loads(form.scraper_vars.data or '{}')
+        tmpl.group_id = form.group_id.data or None
         _write_body(tmpl.id, form.body.data)
-        tmpl.body_path = _body_path(tmpl.id)  # 同步確保 DB 路徑與實際檔案一致
+        tmpl.body_path = _body_path(tmpl.id)
         tmpl.tags = _parse_tags(form.tags.data or '', current_user.id)
         db.session.commit()
         flash('模板已更新', 'success')
@@ -173,7 +217,7 @@ def edit(tmpl_id):
 @login_required
 def delete(tmpl_id):
     tmpl = db.session.get(EmailTemplate, tmpl_id)
-    if tmpl is None or tmpl.owner_id != current_user.id:
+    if not _user_can_access_template(tmpl):
         abort(404)
     path = _body_path(tmpl.id)
     if os.path.exists(path):
@@ -191,7 +235,7 @@ def delete(tmpl_id):
 @login_required
 def download_attachment(tmpl_id, att_id):
     tmpl = db.session.get(EmailTemplate, tmpl_id)
-    if tmpl is None or tmpl.owner_id != current_user.id:
+    if not _user_can_access_template(tmpl):
         abort(404)
     att = db.session.get(Attachment, att_id)
     if att is None or att.template_id != tmpl_id:
@@ -208,7 +252,7 @@ def download_attachment(tmpl_id, att_id):
 @login_required
 def upload_attachment(tmpl_id):
     tmpl = db.session.get(EmailTemplate, tmpl_id)
-    if tmpl is None or tmpl.owner_id != current_user.id:
+    if not _user_can_access_template(tmpl):
         return jsonify({'ok': False, 'error': '找不到模板'}), 404
     allowed = Config.ALLOWED_EXTENSIONS
     base = os.path.join(UPLOAD_DIR, f'template_{tmpl.id}')
@@ -241,7 +285,7 @@ def upload_attachment(tmpl_id):
 @login_required
 def delete_attachment(tmpl_id, att_id):
     tmpl = db.session.get(EmailTemplate, tmpl_id)
-    if tmpl is None or tmpl.owner_id != current_user.id:
+    if not _user_can_access_template(tmpl):
         return jsonify({'ok': False, 'error': '找不到模板'}), 404
     att = db.session.get(Attachment, att_id)
     if att is None or att.template_id != tmpl_id:
@@ -257,7 +301,7 @@ def delete_attachment(tmpl_id, att_id):
 @login_required
 def preview(tmpl_id):
     tmpl = db.session.get(EmailTemplate, tmpl_id)
-    if tmpl is None or tmpl.owner_id != current_user.id:
+    if not _user_can_access_template(tmpl):
         abort(404)
 
     # Build preview context: scraper_vars use last_content as placeholder
