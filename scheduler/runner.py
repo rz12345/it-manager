@@ -19,14 +19,8 @@ def _compute_next_run(task):
     """重新計算任務的 next_run（cron 模式）。"""
     if task.schedule_mode == 'once':
         return None
-    if not task.cron_expr:
-        return None
-    try:
-        from croniter import croniter
-        return croniter(task.cron_expr.strip(),
-                        datetime.now(timezone.utc)).get_next(datetime)
-    except Exception:
-        return None
+    from app.scheduling import compute_next_run
+    return compute_next_run(task)
 
 
 def _acquire_lock(lock_path: str):

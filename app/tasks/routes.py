@@ -9,6 +9,7 @@ from flask_login import current_user, login_required
 from app import db
 from app.groups.decorators import admin_required, user_can_access
 from app.models import (BackupRun, BackupTask, BackupTaskTarget, Device, Host)
+from app.scheduling import compute_next_run as _compute_next_run
 from app.tasks import bp
 from app.tasks.forms import BackupTaskForm
 
@@ -25,21 +26,6 @@ def _basic_to_cron(frequency, time_str, day=None, week=None):
         suffix = 'L' if week == 'L' else f'#{week}'
         return f'{int(mm)} {int(hh)} * * {day}{suffix}'
     return f'{int(mm)} {int(hh)} * * {day}'
-
-
-def _compute_next_run(task: BackupTask):
-    if task.schedule_mode == 'once':
-        return task.scheduled_at
-    if not task.cron_expr:
-        return None
-    try:
-        from croniter import croniter
-        tz = _local_tz()
-        now_local = datetime.now(tz)
-        nxt_local = croniter(task.cron_expr.strip(), now_local).get_next(datetime)
-        return nxt_local.astimezone(timezone.utc).replace(tzinfo=None)
-    except Exception:
-        return None
 
 
 def _load_choices(form: BackupTaskForm):

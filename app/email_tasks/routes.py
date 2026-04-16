@@ -2,12 +2,12 @@ import os
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from croniter import croniter
 from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app import db
 from app.models import EmailRun, EmailTask, EmailTemplate, Group, Tag, Task, TaskTemplate, _tag_color, task_tags
+from app.scheduling import compute_next_run as _compute_next_run
 from app.email_tasks import bp
 from app.email_tasks.forms import TaskForm
 
@@ -65,15 +65,6 @@ def _basic_to_cron(frequency, time_str, day=None, week=None):
         suffix = 'L' if week == 'L' else f'#{week}'
         return f'{int(mm)} {int(hh)} * * {day}{suffix}'
     return f'{int(mm)} {int(hh)} * * {day}'
-
-
-def _compute_next_run(task):
-    if task.schedule_mode != 'once':
-        now_local = datetime.now(_LOCAL_TZ)
-        it = croniter(task.cron_expr, now_local)
-        next_local = it.get_next(datetime)
-        return next_local.astimezone(timezone.utc).replace(tzinfo=None)
-    return task.scheduled_at
 
 
 def _template_choices():

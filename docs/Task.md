@@ -2,6 +2,15 @@
 
 <!-- 格式：## YYYY-MM-DD，底下依分類列出完成項目 -->
 
+## 2026-04-16（排程時區統一）
+
+### 修正
+- `scheduler/runner.py` 的 `_compute_next_run` 原以 UTC 當基準呼叫 croniter，導致每次執行後 `next_run` 被重算成「cron 時間當 UTC」，實際觸發時刻偏移 +8h（20:30 TPE 變成 04:30 TPE 隔日）。
+
+### 共用化
+- 新增 `app/scheduling.py`：`compute_next_run(task)` 統一以 `DISPLAY_TZ` 為基準計算 cron 下一次時間並轉 UTC naive。
+- `app/tasks/routes.py`、`app/email_tasks/routes.py`、`scheduler/runner.py` 三處 `_compute_next_run` 改為引用共用函式，避免時區邏輯漂移。
+
 ## 2026-04-15（前端 UI/UX 全站改進）
 
 ### 資產本地化
