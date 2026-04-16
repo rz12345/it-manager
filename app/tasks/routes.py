@@ -244,18 +244,22 @@ def toggle(task_id):
 @bp.route('/<int:task_id>/run', methods=['POST'])
 @admin_required
 def run_now(task_id):
+    import threading
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from app.settings_store import get_scheduler_max_workers
 
     try:
         task = BackupTask.query.get_or_404(task_id)
+
+        if task.last_status == 'running':
+            return jsonify(ok=False, message='任務正在執行中，請稍候'), 409
+
         try:
             from scheduler.ssh_backup import run_host_backup
             from scheduler.netmiko_backup import run_device_backup
         except ImportError:
             return jsonify(ok=False, message='排程器模組未安裝'), 501
 
-        # 預先解析目標，避免子執行緒讀 lazy relationship
         plan = []
         for t in task.targets:
             if t.target_type == 'host' and t.host:
@@ -267,47 +271,75 @@ def run_now(task_id):
         task_id_val = task.id
         app_obj = current_app._get_current_object()
 
-        def _worker(target_type, target_id, target_name):
-            with app_obj.app_context():
-                try:
-                    if target_type == 'host':
-                        r = run_host_backup(target_id, task_id=task_id_val,
-                                            retain_count=retain_count,
-                                            triggered_by='manual')
-                    else:
-                        r = run_device_backup(target_id, task_id=task_id_val,
-                                              retain_count=retain_count,
-                                              triggered_by='manual')
-                    return (target_name, r.status, None)
-                except Exception as e:
-                    try: db.session.rollback()
-                    except Exception: pass
-                    return (target_name, 'error', str(e))
-
-        success, failed = 0, 0
-        messages = []
-        workers = max(1, min(get_scheduler_max_workers(), len(plan) or 1))
-
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(_worker, *p) for p in plan]
-            for fut in as_completed(futures):
-                name, status, err = fut.result()
-                if status == 'success':
-                    success += 1
-                else:
-                    failed += 1
-                    messages.append(f'{name}: {err or status}')
-
+        task.last_status = 'running'
         task.last_run = datetime.now(timezone.utc)
-        task.last_status = 'success' if failed == 0 else ('partial' if success else 'failed')
         db.session.commit()
 
-        msg = f'完成：成功 {success} / 失敗 {failed}'
-        if messages:
-            msg += '；' + '；'.join(messages[:3])
-        return jsonify(ok=failed == 0, message=msg)
+        def _background():
+            with app_obj.app_context():
+                def _worker(target_type, target_id, target_name):
+                    with app_obj.app_context():
+                        try:
+                            if target_type == 'host':
+                                r = run_host_backup(target_id, task_id=task_id_val,
+                                                    retain_count=retain_count,
+                                                    triggered_by='manual')
+                            else:
+                                r = run_device_backup(target_id, task_id=task_id_val,
+                                                      retain_count=retain_count,
+                                                      triggered_by='manual')
+                            return (target_name, r.status, None)
+                        except Exception as e:
+                            try: db.session.rollback()
+                            except Exception: pass
+                            return (target_name, 'error', str(e))
+
+                success, failed = 0, 0
+                messages = []
+                workers = max(1, min(get_scheduler_max_workers(), len(plan) or 1))
+
+                try:
+                    with ThreadPoolExecutor(max_workers=workers) as pool:
+                        futures = [pool.submit(_worker, *p) for p in plan]
+                        for fut in as_completed(futures):
+                            name, status, err = fut.result()
+                            if status == 'success':
+                                success += 1
+                            else:
+                                failed += 1
+                                messages.append(f'{name}: {err or status}')
+
+                    t = db.session.get(BackupTask, task_id_val)
+                    t.last_status = 'success' if failed == 0 else ('partial' if success else 'failed')
+                    t.last_message = f'成功 {success} / 失敗 {failed}'
+                    if messages:
+                        t.last_message += '；' + '；'.join(messages[:3])
+                    db.session.commit()
+                except Exception as e:
+                    try:
+                        t = db.session.get(BackupTask, task_id_val)
+                        t.last_status = 'failed'
+                        t.last_message = f'伺服器錯誤：{e}'
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+
+        threading.Thread(target=_background, daemon=True).start()
+        return jsonify(ok=True, message='備份已開始執行…')
     except Exception as e:
         current_app.logger.exception('run_now failed')
         try: db.session.rollback()
         except Exception: pass
         return jsonify(ok=False, message=f'伺服器錯誤：{e}'), 500
+
+
+@bp.route('/<int:task_id>/run-status')
+@admin_required
+def run_status(task_id):
+    task = BackupTask.query.get_or_404(task_id)
+    running = task.last_status == 'running'
+    return jsonify(
+        running=running,
+        status=task.last_status,
+        message=task.last_message or '',
+    )

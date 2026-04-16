@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
+import time
 from datetime import datetime, timezone
 
 from flask import current_app
@@ -14,6 +16,44 @@ from app import db
 from app.crypto import safe_decrypt
 from app.models import BackupRecord, BackupRun, Device
 from app.settings_store import get_netmiko_timeout
+
+_MORE_RE = re.compile(r'-+\s*[Mm]ore\s*-+')
+_ANSI_RE = re.compile(r'\x1b\[[0-9;]*[A-Za-z]|\x1b\[\?.*?[A-Za-z]|\x08')
+
+
+def _send_with_paging(conn, command, timeout):
+    """Send a command and handle --More-- pagination by sending spaces."""
+    conn.write_channel(command + '\n')
+    time.sleep(1)
+    raw = ''
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        time.sleep(0.5)
+        chunk = conn.read_channel()
+        if not chunk:
+            time.sleep(1)
+            chunk = conn.read_channel()
+            if not chunk:
+                break
+        raw += chunk
+        if _MORE_RE.search(raw):
+            conn.write_channel(' ')
+    raw = _ANSI_RE.sub('', raw)
+    raw = _MORE_RE.sub('', raw)
+    raw = raw.replace('\r\n', '\n').replace('\r', '\n')
+    lines = raw.split('\n')
+    if lines and lines[0].strip() == command.strip():
+        lines = lines[1:]
+    if lines and conn.find_prompt().strip() in lines[-1]:
+        lines = lines[:-1]
+    cleaned = []
+    for line in lines:
+        if line.strip() == '' and cleaned and cleaned[-1].strip() == '':
+            continue
+        cleaned.append(line)
+    while cleaned and cleaned[-1].strip() == '':
+        cleaned.pop()
+    return '\n'.join(cleaned)
 
 
 def _storage_dir(device_id: int) -> str:
@@ -96,6 +136,7 @@ def run_device_backup(device_id: int, task_id: int | None = None,
         'aruba_osswitch': 'no page',
         'hp_procurve':    'no page',
         'paloalto_panos': 'set cli pager off',
+        'zyxel_os':       'terminal length 0',
     }
     paging_cmd = _PAGING_BY_VENDOR.get(device.vendor)
 
@@ -112,18 +153,15 @@ def run_device_backup(device_id: int, task_id: int | None = None,
                 except Exception:
                     pass
             try:
-                if device.vendor == 'paloalto_panos':
-                    # PAN-OS XML 輸出首行 <response status="success"> 結尾的 '>'
-                    # 會觸發 Netmiko prompt 正則，導致 send_command 回傳空字串。
-                    # 改走 timing 模式（不靠 prompt，以靜默判斷結束）。
+                if device.vendor == 'zyxel_os':
+                    output = _send_with_paging(conn, command, timeout)
+                elif device.vendor == 'paloalto_panos':
                     output = conn.send_command_timing(command,
                                                       read_timeout=timeout,
                                                       last_read=4.0)
                 else:
                     output = conn.send_command(command, read_timeout=timeout)
             except Exception:
-                # prompt 偵測失敗 → 改用 timing 模式（不靠 prompt，以輸出
-                # 靜默判斷結束），對 Aruba/老舊韌體最可靠
                 output = conn.send_command_timing(command,
                                                   read_timeout=timeout,
                                                   last_read=4.0)

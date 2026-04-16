@@ -2,6 +2,19 @@
 
 <!-- 格式：## YYYY-MM-DD，底下依分類列出完成項目 -->
 
+## 2026-04-16（郵件模板與爬蟲納入分組）
+
+### 功能
+- EmailTemplate、Scraper 新增 `group_id` FK，比照 EmailTask 實作 owner + group 雙軌存取控制。
+- 新增 `_user_can_access_template()`、`_visible_templates_query()`、`_populate_group_choices()` 三組 helper（templates_mgr、scrapers 各一套）。
+- 模板與爬蟲的所有 route（CRUD、附件、預覽、測試）改用 group-aware 存取檢查。
+- EmailTask 建立表單的模板選單、模板表單的爬蟲選單同步支援同組資源。
+- 列表頁新增「分組」欄位顯示。
+- 分組表單成員欄位移除冗餘括號說明。
+
+### Migration
+- `e0fa84dda3f1`: `email_templates` 與 `scrapers` 加 `group_id` 欄位（nullable, indexed, FK to groups）。
+
 ## 2026-04-16（排程時區統一）
 
 ### 修正

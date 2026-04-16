@@ -65,7 +65,8 @@
                     <dt class="col-4 text-muted">最近執行</dt>
                     <dd class="col-8">
                         {{ task.last_run|localtime if task.last_run else '—' }}
-                        {% if task.last_status == 'success' %}<span class="badge bg-success ms-1">成功</span>
+                        {% if task.last_status == 'running' %}<span class="badge bg-info ms-1"><span class="spinner-border spinner-border-sm" style="width:.7em;height:.7em"></span> 執行中</span>
+                        {% elif task.last_status == 'success' %}<span class="badge bg-success ms-1">成功</span>
                         {% elif task.last_status == 'partial' %}<span class="badge bg-warning ms-1">部分</span>
                         {% elif task.last_status == 'failed' %}<span class="badge bg-danger ms-1">失敗</span>
                         {% endif %}
@@ -120,24 +121,65 @@
     const btn = document.getElementById('run-now-btn');
     const out = document.getElementById('run-result');
     if (!btn) return;
-    btn.addEventListener('click', async () => {
-        if (!confirm('立即為此任務的所有目標執行一次備份？')) return;
+
+    const statusUrl = '{{ url_for("tasks.run_status", task_id=task.id) }}';
+    let polling = false;
+
+    function startPolling(origHtml) {
+        if (polling) return;
+        polling = true;
         btn.disabled = true;
-        const orig = btn.innerHTML;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>執行中…';
         out.innerHTML = '<div class="alert alert-info py-2">備份執行中，請稍候…</div>';
+
+        const timer = setInterval(async () => {
+            try {
+                const r = await fetch(statusUrl);
+                const d = await r.json();
+                if (!d.running) {
+                    clearInterval(timer);
+                    polling = false;
+                    const ok = d.status === 'success';
+                    const cls = ok ? 'success' : (d.status === 'partial' ? 'warning' : 'danger');
+                    out.innerHTML = '<div class="alert alert-' + cls + ' py-2">' +
+                                    (d.message || d.status) + '</div>';
+                    btn.disabled = false;
+                    btn.innerHTML = origHtml;
+                    setTimeout(() => location.reload(), 1500);
+                }
+            } catch(e) {
+                clearInterval(timer);
+                polling = false;
+                out.innerHTML = '<div class="alert alert-danger py-2">狀態查詢失敗：' + e + '</div>';
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        }, 3000);
+    }
+
+    {% if task.last_status == 'running' %}
+    startPolling(btn.innerHTML);
+    {% endif %}
+
+    btn.addEventListener('click', async () => {
+        if (!confirm('立即為此任務的所有目標執行一次備份？')) return;
+        const orig = btn.innerHTML;
+        btn.disabled = true;
         try {
             const res = await fetch('{{ url_for("tasks.run_now", task_id=task.id) }}', {
                 method: 'POST',
                 headers: {'X-CSRFToken': '{{ csrf_token() }}'},
             });
             const data = await res.json();
-            out.innerHTML = '<div class="alert alert-' + (data.ok ? 'success' : 'warning') + ' py-2">' +
-                            (data.message || '') + '</div>';
-            setTimeout(() => location.reload(), 1500);
+            if (data.ok) {
+                startPolling(orig);
+            } else {
+                out.innerHTML = '<div class="alert alert-warning py-2">' + (data.message || '') + '</div>';
+                btn.disabled = false;
+                btn.innerHTML = orig;
+            }
         } catch(e) {
             out.innerHTML = '<div class="alert alert-danger py-2">請求失敗：' + e + '</div>';
-        } finally {
             btn.disabled = false;
             btn.innerHTML = orig;
         }

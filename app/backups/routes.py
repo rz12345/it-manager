@@ -1,6 +1,6 @@
 import os
 
-from flask import (abort, flash, redirect, render_template, request,
+from flask import (Response, abort, flash, redirect, render_template, request,
                    send_file, url_for)
 from flask_login import login_required
 
@@ -109,7 +109,6 @@ def view_record(record_id):
     if not rec.storage_path or not os.path.exists(rec.storage_path):
         abort(404)
 
-    return send_file(rec.storage_path,
-                     mimetype='text/plain; charset=utf-8',
-                     as_attachment=False,
-                     download_name=os.path.basename(rec.storage_path))
+    with open(rec.storage_path, 'r', encoding='utf-8', errors='replace') as f:
+        content = f.read()
+    return Response(content, mimetype='text/plain; charset=utf-8')

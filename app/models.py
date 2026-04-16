@@ -14,18 +14,20 @@ from app import db, login_manager
 
 
 # ── 網路設備廠商常數 ──
-DEVICE_VENDORS = ('cisco_ios', 'aruba_os', 'paloalto_panos')
+DEVICE_VENDORS = ('cisco_ios', 'aruba_os', 'paloalto_panos', 'zyxel_os')
 
 VENDOR_LABEL = {
     'cisco_ios':      'Cisco IOS Switch',
     'aruba_os':       'Aruba OS Switch',
     'paloalto_panos': 'Palo Alto PAN-OS Firewall',
+    'zyxel_os':       'Zyxel Switch',
 }
 
 VENDOR_DEFAULT_COMMAND = {
     'cisco_ios':      'show running-config',
     'aruba_os':       'show running-config',
     'paloalto_panos': 'show config running',
+    'zyxel_os':       'show running-config',
 }
 
 
@@ -282,7 +284,8 @@ class Task(db.Model):
 
     next_run = db.Column(db.DateTime, index=True)
     last_run = db.Column(db.DateTime)
-    last_status = db.Column(db.String(10))  # 'success' | 'partial' | 'failed'
+    last_status = db.Column(db.String(10))  # 'success' | 'partial' | 'failed' | 'running'
+    last_message = db.Column(db.String(500))
 
     is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
 
