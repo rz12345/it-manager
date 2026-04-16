@@ -85,6 +85,11 @@
                     <ul class="list-group list-group-flush mb-3">
                         {% for fp in host.file_paths %}
                         <li class="list-group-item d-flex align-items-center px-0">
+                            {% if fp.mode == 'command' %}
+                            <i class="bi bi-terminal me-1 text-warning" title="SSH 指令"></i>
+                            {% else %}
+                            <i class="bi bi-file-earmark me-1 text-secondary" title="SFTP 檔案"></i>
+                            {% endif %}
                             <code class="flex-grow-1 text-truncate">{{ fp.path }}</code>
                             <span class="badge bg-{{ 'info' if fp.source == 'template' else 'light text-dark' }} me-2">
                                 {{ '模板' if fp.source == 'template' else '手動' }}
@@ -110,8 +115,9 @@
                     <form method="post" action="{{ url_for('hosts.add_path', host_id=host.id) }}"
                           class="d-flex gap-2" novalidate>
                         {{ path_form.hidden_tag() }}
+                        {{ path_form.mode(class='form-select form-select-sm', style='width:auto;min-width:120px') }}
                         {{ path_form.path(class='form-control form-control-sm',
-                                          placeholder='/etc/nginx/conf.d/*.conf（支援 Glob）') }}
+                                          placeholder='/etc/nginx/conf.d/*.conf（支援 Glob）或 SSH 指令') }}
                         <button class="btn btn-sm btn-primary" type="submit">
                             <i class="bi bi-plus-lg"></i> 新增
                         </button>

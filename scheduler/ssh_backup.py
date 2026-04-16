@@ -69,6 +69,65 @@ def _expand_glob(sftp: paramiko.SFTPClient, pattern: str) -> list[str]:
     return files
 
 
+def _backup_via_command(client: paramiko.SSHClient, command: str,
+                        run_id: int, timestamp: str,
+                        storage_dir: str,
+                        password: str = '') -> tuple[bool, str]:
+    """透過 SSH exec_command 執行指令，將 stdout 存為備份檔案。
+    含 sudo 的指令自動加 -S 並透過 stdin 送密碼。"""
+    try:
+        needs_sudo = command.lstrip().startswith('sudo ')
+        if needs_sudo and '-S' not in command:
+            command = command.replace('sudo ', 'sudo -S ', 1)
+
+        stdin, stdout, stderr = client.exec_command(command, timeout=60)
+
+        if needs_sudo and password:
+            stdin.write(password + '\n')
+            stdin.flush()
+
+        exit_code = stdout.channel.recv_exit_status()
+        output = stdout.read()
+        err_output = stderr.read().decode('utf-8', errors='replace').strip()
+        if needs_sudo:
+            err_output = '\n'.join(
+                ln for ln in err_output.splitlines()
+                if not ln.startswith('[sudo]') and 'password for' not in ln.lower()
+            ).strip()
+
+        if exit_code != 0:
+            msg = err_output or f'指令回傳 exit code {exit_code}'
+            db.session.add(BackupRecord(
+                run_id=run_id, file_path=command,
+                storage_path='', status='failed', error_message=msg))
+            return False, msg
+
+        if not output:
+            db.session.add(BackupRecord(
+                run_id=run_id, file_path=command,
+                storage_path='', status='failed',
+                error_message='指令無輸出'))
+            return False, '指令無輸出'
+
+        fname = f'{timestamp}_{_sanitize(command)}'
+        local_path = os.path.join(storage_dir, fname)
+        with open(local_path, 'wb') as f:
+            f.write(output)
+
+        size = len(output)
+        checksum = hashlib.sha256(output).hexdigest()
+        db.session.add(BackupRecord(
+            run_id=run_id, file_path=command,
+            storage_path=local_path, file_size=size,
+            checksum=checksum, status='success'))
+        return True, ''
+    except Exception as e:
+        db.session.add(BackupRecord(
+            run_id=run_id, file_path=command,
+            storage_path='', status='failed', error_message=str(e)))
+        return False, str(e)
+
+
 def _cleanup_old_runs(host_id: int, task_id, retain: int):
     """保留此 (host, task) 下最近 retain 筆 BackupRun，其餘刪除（含實體檔案）。
     task_id 為 None 時清理無任務關聯的 runs（例如 task 已被刪除）。"""
@@ -124,12 +183,26 @@ def run_host_backup(host_id: int, task_id: int | None = None,
         client.connect(hostname=host.ip_address, port=host.port,
                        username=username, password=password,
                        timeout=timeout, allow_agent=False, look_for_keys=False)
-        sftp = client.open_sftp()
-        try:
-            if not host.file_paths:
-                raise RuntimeError('主機尚未設定備份路徑')
 
+        if not host.file_paths:
+            raise RuntimeError('主機尚未設定備份路徑')
+
+        sftp = None
+        try:
             for fp in host.file_paths:
+                if getattr(fp, 'mode', 'sftp') == 'command':
+                    ok, msg = _backup_via_command(
+                        client, fp.path, run.id, timestamp, storage_dir,
+                        password=password)
+                    if ok:
+                        success_count += 1
+                    else:
+                        fail_count += 1
+                    continue
+
+                if sftp is None:
+                    sftp = client.open_sftp()
+
                 matched = _expand_glob(sftp, fp.path)
                 if not matched:
                     rec = BackupRecord(run_id=run.id, file_path=fp.path,
@@ -160,7 +233,8 @@ def run_host_backup(host_id: int, task_id: int | None = None,
                         db.session.add(rec)
                         fail_count += 1
         finally:
-            sftp.close()
+            if sftp is not None:
+                sftp.close()
     except paramiko.AuthenticationException as e:
         run_error = f'SSH 認證失敗：{e}'
     except (paramiko.SSHException, socket.timeout, OSError) as e:

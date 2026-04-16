@@ -166,6 +166,7 @@ class HostTemplatePath(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     template_id = db.Column(db.Integer, db.ForeignKey('host_templates.id'), nullable=False)
     path = db.Column(db.String(512), nullable=False)
+    mode = db.Column(db.String(10), nullable=False, default='sftp')
 
 
 # ── Linux 主機 ──
@@ -209,6 +210,7 @@ class HostFilePath(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     host_id = db.Column(db.Integer, db.ForeignKey('hosts.id'), nullable=False)
     path = db.Column(db.String(512), nullable=False)
+    mode = db.Column(db.String(10), nullable=False, default='sftp')
     source = db.Column(db.String(20), default='manual')
 
 

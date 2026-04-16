@@ -37,11 +37,11 @@ def _apply_template(host: Host, template_id: int):
     template = HostTemplate.query.get(template_id)
     if template is None:
         return
-    existing = {fp.path for fp in host.file_paths}
+    existing = {(fp.path, fp.mode) for fp in host.file_paths}
     for tp in template.template_paths:
-        if tp.path in existing:
+        if (tp.path, tp.mode) in existing:
             continue
-        host.file_paths.append(HostFilePath(path=tp.path, source='template'))
+        host.file_paths.append(HostFilePath(path=tp.path, mode=tp.mode, source='template'))
 
 
 # ── 新增 ──
@@ -166,11 +166,12 @@ def add_path(host_id):
     form = HostFilePathForm()
     if form.validate_on_submit():
         path = form.path.data.strip()
-        exists = any(fp.path == path for fp in host.file_paths)
+        mode = form.mode.data or 'sftp'
+        exists = any(fp.path == path and fp.mode == mode for fp in host.file_paths)
         if exists:
             flash('此路徑已存在', 'warning')
         else:
-            host.file_paths.append(HostFilePath(path=path, source='manual'))
+            host.file_paths.append(HostFilePath(path=path, mode=mode, source='manual'))
             db.session.commit()
             flash('已新增備份路徑', 'success')
     else:
@@ -352,10 +353,11 @@ def templates_add_path(template_id):
     form = HostTemplatePathForm()
     if form.validate_on_submit():
         path = form.path.data.strip()
-        if any(tp.path == path for tp in tpl.template_paths):
+        mode = form.mode.data or 'sftp'
+        if any(tp.path == path and tp.mode == mode for tp in tpl.template_paths):
             flash('此路徑已存在', 'warning')
         else:
-            tpl.template_paths.append(HostTemplatePath(path=path))
+            tpl.template_paths.append(HostTemplatePath(path=path, mode=mode))
             db.session.commit()
             flash('已新增預設路徑', 'success')
     else:

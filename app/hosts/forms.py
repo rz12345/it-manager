@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import (BooleanField, IntegerField, SelectField,
-                     StringField, SubmitField, TextAreaField)
+                     StringField, SubmitField, TextAreaField, ValidationError)
 from wtforms.validators import (DataRequired, IPAddress, Length, NumberRange,
                                 Optional, Regexp)  # noqa: F401
 
@@ -39,13 +39,21 @@ class HostForm(FlaskForm):
 
 
 class HostFilePathForm(FlaskForm):
-    """新增單一備份路徑（支援 Glob，如 /etc/nginx/conf.d/*.conf）。"""
-    path = StringField(
-        '備份路徑',
-        validators=[DataRequired(), Length(max=512),
-                    Regexp(r'^/', message='請使用絕對路徑（以 / 開頭）')],
+    """新增單一備份路徑（支援 Glob）或指令（透過 SSH 執行）。"""
+    mode = SelectField(
+        '模式',
+        choices=[('sftp', 'SFTP 檔案'), ('command', 'SSH 指令')],
+        default='sftp',
     )
-    submit = SubmitField('新增路徑')
+    path = StringField(
+        '路徑 / 指令',
+        validators=[DataRequired(), Length(max=512)],
+    )
+    submit = SubmitField('新增')
+
+    def validate_path(self, field):
+        if self.mode.data == 'sftp' and not field.data.strip().startswith('/'):
+            raise ValidationError('SFTP 模式請使用絕對路徑（以 / 開頭）')
 
 
 class HostTemplateForm(FlaskForm):
@@ -56,10 +64,18 @@ class HostTemplateForm(FlaskForm):
 
 
 class HostTemplatePathForm(FlaskForm):
-    """模板內預設備份路徑（支援 Glob）。"""
-    path = StringField(
-        '預設路徑',
-        validators=[DataRequired(), Length(max=512),
-                    Regexp(r'^/', message='請使用絕對路徑（以 / 開頭）')],
+    """模板內預設備份路徑（支援 Glob）或指令。"""
+    mode = SelectField(
+        '模式',
+        choices=[('sftp', 'SFTP 檔案'), ('command', 'SSH 指令')],
+        default='sftp',
     )
-    submit = SubmitField('新增路徑')
+    path = StringField(
+        '路徑 / 指令',
+        validators=[DataRequired(), Length(max=512)],
+    )
+    submit = SubmitField('新增')
+
+    def validate_path(self, field):
+        if self.mode.data == 'sftp' and not field.data.strip().startswith('/'):
+            raise ValidationError('SFTP 模式請使用絕對路徑（以 / 開頭）')
