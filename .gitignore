@@ -11,13 +11,8 @@ env/
 # Environment
 .env
 
-# Database
-data/*.db
-data/*.db-journal
-
-# Runtime（日誌、排程鎖檔不進版控）
-data/*.log
-data/scheduler.lock
+# Data directory（DB、日誌、排程鎖、模板資料等不進版控）
+data/
 
 # Backups（備份檔案不進版控）
 backups/hosts/*
