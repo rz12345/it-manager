@@ -279,10 +279,8 @@ def test_send(task_id):
     if not _user_can_access_task(task):
         abort(404)
 
-    from app.settings_store import get_setting, get_smtp_cfg
-    test_email = (get_setting('TEST_EMAIL') or '').strip()
-    if not test_email:
-        return jsonify({'ok': False, 'error': '尚未設定測試收件人，請至系統設定頁面填寫 TEST_EMAIL。'}), 400
+    from app.settings_store import get_smtp_cfg
+    test_email = current_user.email
 
     if not task.task_templates:
         return jsonify({'ok': False, 'error': '此任務尚未設定郵件模板。'}), 400

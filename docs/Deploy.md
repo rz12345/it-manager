@@ -229,4 +229,4 @@ cp /opt/it-manager/.env /mnt/backup/it-manager/env.backup
 | 登入後 CSRF 錯誤 | 多半為 `SECRET_KEY` 被重啟改寫；固定 `.env` 中 `SECRET_KEY` |
 | 備份報 `InvalidToken` | `CRYPTO_KEY` 與寫入密碼時不一致；需還原舊金鑰或重新於 Web UI 編輯每台主機/設備密碼 |
 | cron 不執行 | `sudo systemctl status cron`；確認 crontab 對應使用者（`crontab -u www-data -l`）；檢查 `data/scheduler.log` |
-| SMTP 送不出 | 系統設定頁填妥 `SMTP_HOST/PORT/FROM/NOTIFY_EMAIL`；防火牆確認允許外連 587/465 |
+| SMTP 送不出 | 系統設定頁填妥 `SMTP_HOST/PORT/FROM`；確認使用者帳號有填寫 email（告警寄至任務擁有者信箱）；防火牆確認允許外連 587/465 |

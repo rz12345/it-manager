@@ -2,6 +2,21 @@
 
 <!-- 格式：## YYYY-MM-DD，底下依分類列出完成項目 -->
 
+## 2026-04-20（測試寄信與告警收件人改為使用者信箱）
+
+### 功能
+- Email 任務「測試寄信」改為寄至當前使用者信箱（`current_user.email`），不再讀取 `TEST_EMAIL` 設定。
+- 系統設定頁「SMTP 測試寄信」同樣改寄至 `current_user.email`。
+- 排程失敗告警（`scheduler/notifier.py`）改寄至任務擁有者信箱（`run.task.owner.email`），新增 `_owner_email()` helper。
+- 移除 `NOTIFY_EMAIL`、`TEST_EMAIL` 兩個系統設定欄位（`settings_store.py`、`forms.py`、`routes.py`、`edit.html`）。
+- 設定頁 SMTP 區塊僅保留 Host / Port / User / Pass / From 五個欄位。
+
+### 文件
+- `docs/Architecture.md`：更新 notifier 說明與 Email 任務細節。
+- `docs/Deploy.md`：SMTP 排錯說明更新。
+
+---
+
 ## 2026-04-16（郵件模板與爬蟲納入分組）
 
 ### 功能

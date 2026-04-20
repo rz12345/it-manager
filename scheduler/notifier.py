@@ -4,13 +4,13 @@ from __future__ import annotations
 import smtplib
 from email.message import EmailMessage
 
-from app.settings_store import get_setting, get_smtp_cfg
+from app.settings_store import get_smtp_cfg
 
 
 def send_email(subject: str, body: str, to_addr: str | None = None) -> tuple[bool, str]:
-    """寄送告警信。成功回傳 (True, '')，失敗回傳 (False, error_message)。"""
+    """寄送告警信。to_addr 為必要收件人。成功回傳 (True, '')，失敗回傳 (False, error_message)。"""
     cfg = get_smtp_cfg()
-    recipient = to_addr or (get_setting('NOTIFY_EMAIL') or '')
+    recipient = to_addr or ''
 
     if not cfg['host'] or not cfg['from_addr'] or not recipient:
         return False, 'SMTP 或收件人未設定，略過寄送'
@@ -37,8 +37,16 @@ def send_email(subject: str, body: str, to_addr: str | None = None) -> tuple[boo
         return False, str(e)
 
 
+def _owner_email(run) -> str:
+    """從 run.task.owner 取得任務擁有者 email。"""
+    try:
+        return run.task.owner.email or ''
+    except (AttributeError, TypeError):
+        return ''
+
+
 def notify_backup_failure(run, target_name: str, target_type: str) -> None:
-    """備份失敗/部分失敗時寄發告警信。"""
+    """備份失敗/部分失敗時寄發告警信至任務擁有者。"""
     if run.status not in ('failed', 'partial'):
         return
     status_label = {'failed': '失敗', 'partial': '部分失敗'}.get(run.status, run.status)
@@ -55,11 +63,11 @@ def notify_backup_failure(run, target_name: str, target_type: str) -> None:
     for rec in run.records:
         if rec.status == 'failed':
             lines.append(f'  - 失敗檔案：{rec.file_path}  {rec.error_message or ""}')
-    send_email(subject, '\n'.join(lines))
+    send_email(subject, '\n'.join(lines), to_addr=_owner_email(run))
 
 
 def notify_email_failure(run, task_name: str) -> None:
-    """Email 任務失敗/部分失敗時寄發告警信。"""
+    """Email 任務失敗/部分失敗時寄發告警信至任務擁有者。"""
     if run.status not in ('failed', 'partial'):
         return
     status_label = {'failed': '失敗', 'partial': '部分失敗'}.get(run.status, run.status)
@@ -76,7 +84,7 @@ def notify_email_failure(run, task_name: str) -> None:
         lines.append('')
         lines.append('錯誤訊息：')
         lines.append(run.error_message)
-    send_email(subject, '\n'.join(lines))
+    send_email(subject, '\n'.join(lines), to_addr=_owner_email(run))
 
 
 def notify_task_failure(run, task_name: str, task_type: str) -> None:

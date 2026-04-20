@@ -15,7 +15,7 @@ from app.settings_store import get_setting, set_setting
 
 
 _NOTIFY_KEYS = ('SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS',
-                'SMTP_FROM', 'NOTIFY_EMAIL', 'TEST_EMAIL')
+                'SMTP_FROM')
 _TIMEOUT_KEYS = ('SSH_TIMEOUT_SECONDS', 'NETMIKO_TIMEOUT_SECONDS',
                  'SCHEDULER_MAX_WORKERS')
 _PW_KEYS = ('PW_MIN_LENGTH', 'PW_MIN_UPPER', 'PW_MIN_LOWER',
@@ -68,8 +68,6 @@ def index():
         notify_form.SMTP_PORT.data    = _int_or(get_setting('SMTP_PORT'), 587)
         notify_form.SMTP_USER.data    = get_setting('SMTP_USER', '')
         notify_form.SMTP_FROM.data    = get_setting('SMTP_FROM', '')
-        notify_form.NOTIFY_EMAIL.data = get_setting('NOTIFY_EMAIL', '')
-        notify_form.TEST_EMAIL.data   = get_setting('TEST_EMAIL', '')
         # SMTP_PASS 不回填
 
     timeout_form = TimeoutForm(prefix='timeout')
@@ -191,10 +189,7 @@ def delete_tag(tag_id):
 def test_email():
     from scheduler.notifier import send_email
 
-    recipient = (get_setting('NOTIFY_EMAIL') or '').strip()
-    if not recipient:
-        flash('尚未設定「告警收件者 Email」，請先儲存後再測試。', 'warning')
-        return redirect(url_for('settings.index', tab='notify'))
+    recipient = current_user.email
 
     ok, err = send_email(
         subject='[IT Manager] SMTP 測試信',

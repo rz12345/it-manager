@@ -9,9 +9,6 @@ class NotifyForm(FlaskForm):
     SMTP_USER = StringField('SMTP 帳號', validators=[Optional(), Length(max=128)])
     SMTP_PASS = PasswordField('SMTP 密碼（留白保留原值）', validators=[Optional(), Length(max=128)])
     SMTP_FROM = StringField('寄件者 Email', validators=[Optional(), Email(), Length(max=128)])
-    NOTIFY_EMAIL = StringField('告警收件者 Email', validators=[Optional(), Email(), Length(max=128)])
-    TEST_EMAIL   = StringField('測試收件者 Email（Email 任務 test-send 使用）',
-                               validators=[Optional(), Email(), Length(max=128)])
     submit = SubmitField('儲存設定')
 
 

@@ -54,7 +54,7 @@ it-manager/
 │   ├── email_task.py           # Email 任務執行（渲染模板、注入爬蟲變數、寄送）
 │   ├── mailer.py               # SMTP + MIMEMultipart 寄送（單封 + 重試）
 │   ├── scraper.py              # Playwright + BS4 / regex / JS 擷取
-│   └── notifier.py             # 失敗告警（SMTP，任務型別不限）
+│   └── notifier.py             # 失敗告警（SMTP → 任務擁有者信箱）
 ├── backups/
 │   ├── hosts/                  # {host_id}/{timestamp}_{filename}
 │   └── devices/                # {device_id}/{timestamp}_running.cfg
@@ -97,7 +97,9 @@ it-manager/
 - `EmailTask` 透過 `TaskTemplate` (帶 `order`) 綁定多個 `EmailTemplate`，依序各發一封
 - 模板 body 存放於 `data/email_templates/{template_id}.html`（非資料庫），附件在 `data/uploads/template_{id}/`
 - `scraper_vars` 欄位為 `{var_name: scraper_id}` 映射；渲染時取爬蟲 `last_content` 注入 Jinja2 context
-- 測試寄送（test-send）會寄至 `TEST_EMAIL` 設定值（非任務實際 `recipients`）
+- 測試寄送（test-send）一律寄至當前使用者的信箱（`current_user.email`），而非任務實際 `recipients`
+- 排程失敗告警寄至任務擁有者信箱（`run.task.owner.email`）；SMTP 測試信同樣寄至 `current_user.email`
+- 已移除 `NOTIFY_EMAIL` / `TEST_EMAIL` 設定欄位，所有寄信收件人皆由使用者帳號 email 決定
 
 ## 權限
 

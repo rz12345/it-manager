@@ -40,15 +40,6 @@
                     {{ notify_form.SMTP_FROM.label(class='form-label') }}
                     {{ notify_form.SMTP_FROM(class='form-control', placeholder='noreply@example.com') }}
                 </div>
-                <div class="col-md-6">
-                    {{ notify_form.NOTIFY_EMAIL.label(class='form-label') }}
-                    {{ notify_form.NOTIFY_EMAIL(class='form-control', placeholder='admin@example.com') }}
-                </div>
-                <div class="col-md-6">
-                    {{ notify_form.TEST_EMAIL.label(class='form-label') }}
-                    {{ notify_form.TEST_EMAIL(class='form-control', placeholder='tester@example.com') }}
-                    <div class="form-text">Email 任務「測試寄送」按鈕會將信寄至此地址</div>
-                </div>
             </div>
         </div>
     </div>
@@ -57,7 +48,7 @@
 <div class="d-flex align-items-center justify-content-between">
     <form method="post" action="{{ url_for('settings.test_email') }}"
           class="d-flex align-items-center gap-2 m-0"
-          data-confirm="將以目前儲存的 SMTP 設定寄送測試信至「告警收件者 Email」，確定執行？">
+          data-confirm="將以目前儲存的 SMTP 設定寄送測試信至您的信箱，確定執行？">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-outline-secondary">
             <i class="bi bi-send-check me-1"></i>測試寄信
