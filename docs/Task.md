@@ -2,6 +2,36 @@
 
 <!-- 格式：## YYYY-MM-DD，底下依分類列出完成項目 -->
 
+## 2026-04-20（新增「工具」選單與 MAC 追蹤）
+
+### 功能新增
+- 新增 `工具` 頂層導覽列（Admin-only），首頁卡片式工具入口（`app/tools/`）。
+- **MAC 追蹤**：輸入 MAC（支援冒號／點號／連字號／無分隔四種格式），從指定起點 switch 查 `mac address-table`，找到後依 LLDP/CDP 鄰居 hop 到下一台 switch，直到 edge port / 偵測 loop / 超過 max_hops。
+- 支援廠商：Cisco IOS（`show mac address-table address` + CDP/LLDP）、Aruba OS（AOS-CX 與 ProCurve 雙語法：`show mac-address-table address` / `show mac-address`、`show lldp neighbor-info` / `show lldp info remote-device`）、Zyxel（`show mac address-table mac` + `show lldp ne`）；Palo Alto 排除。
+- 鄰居比對順序：management IP → system name（含去 FQDN 後綴），僅 hop 到使用者可存取且 `is_active` 的 Device；鄰居需至少有 `system_name` 或 `mgmt_ip` 才算有效（避免 CLI 錯誤訊息被當成 remote port 誤判）。
+- **LAG / Port-Channel 展開**：MAC 學到 `lag13` / `Trk1` / `Po13` 時，先查 LAG 成員（AOS-CX `show lacp aggregates`、ProCurve `show trunks`、Cisco `show etherchannel summary`），再對實體成員 port 跑 LLDP，顯示「via 成員 port」。
+- **Interface description 顯示**：每跳查 `show running-config interface ...`（Cisco 用 `show interfaces ... description`）並在卡片顯示 port 描述。
+- 背景執行：`threading.Thread` + 前端 `/status` 每 1.5s 輪詢；結果 timeline 卡片顯示每一跳 device/port/VLAN/description/LAG 成員/鄰居。
+
+### 資料模型 / Migration
+- 新增 `ToolRun` 表（`tool_name` / `user_id` / `query_json` / `result_json` / `status` / `error_message` / `started_at` / `finished_at`）。
+- 注意：Python 屬性用 `query_json` / `result_json`（DB 欄位名仍為 `query` / `result`），避免 `query` 與 Flask-SQLAlchemy `Model.query` 描述符撞名導致 `.get_or_404` 失效。
+- 由使用者自行執行 `flask db migrate -m "add tool_run table" && flask db upgrade`。
+
+### 紀錄頁整合
+- `紀錄` 新增「工具」頁籤（`logs/tool_runs.html`），可篩選 tool / status；Admin 可看全部、一般使用者只看自己。
+- Admin 從列表點「詳情」進入 `tools.mac_trace_detail` 重看 hops。
+
+### 基礎建設
+- `app/__init__.py` 新增 Jinja 模板 filter `from_json`，供工具紀錄頁解析 `ToolRun.query_json` / `result_json`。
+- `base.html` 導覽列（Admin）與 `cm-quicknav-data` 加入「工具」與「紀錄 — 工具」入口。
+
+### 文件
+- `docs/Architecture.md`：加入「工具集（Tools）」章節、`tools` 目錄、Zyxel 廠商預設指令列、LAG 展開與 description 說明。
+- `CLAUDE.md`：Blueprint 清單加上 `tools`。
+
+---
+
 ## 2026-04-20（測試寄信與告警收件人改為使用者信箱）
 
 ### 功能

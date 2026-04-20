@@ -588,3 +588,31 @@ class AppSetting(db.Model):
     value = db.Column(db.Text, nullable=False, default='')
 
 
+# ── 工具執行紀錄（tools blueprint 共用） ──
+class ToolRun(db.Model):
+    """通用工具執行紀錄；目前僅 MAC 追蹤使用，未來可擴充其他工具。
+
+    query / result 以 JSON 字串儲存，由各工具自訂欄位。
+    """
+    __tablename__ = 'tool_runs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tool_name = db.Column(db.String(32), nullable=False, index=True)  # e.g. 'mac_trace'
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'),
+                        nullable=False, index=True)
+    # NOTE: 欄位名不可叫 `query`，會與 Flask-SQLAlchemy 的 `Model.query` 屬性撞名
+    query_json = db.Column('query', db.Text)         # JSON
+    result_json = db.Column('result', db.Text)       # JSON
+    status = db.Column(db.String(16), nullable=False, default='running', index=True)
+    # 'running' | 'success' | 'not_found' | 'failed'
+    error_message = db.Column(db.Text)
+    started_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           nullable=False, index=True)
+    finished_at = db.Column(db.DateTime)
+
+    user = db.relationship('User')
+
+    def __repr__(self):
+        return f'<ToolRun {self.tool_name} #{self.id} {self.status}>'
+
+

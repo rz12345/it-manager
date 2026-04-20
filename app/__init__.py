@@ -96,6 +96,9 @@ def create_app(config=None):
     from app.scrapers import bp as scrapers_bp
     app.register_blueprint(scrapers_bp, url_prefix=f'{_URL_PREFIX}/scrapers')
 
+    from app.tools import bp as tools_bp
+    app.register_blueprint(tools_bp, url_prefix=f'{_URL_PREFIX}/tools')
+
     @app.before_request
     def redirect_to_setup():
         from flask import request as req
@@ -138,5 +141,15 @@ def create_app(config=None):
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(_tz).strftime(fmt)
+
+    @app.template_filter('from_json')
+    def from_json_filter(s):
+        import json
+        if not s:
+            return {}
+        try:
+            return json.loads(s)
+        except (ValueError, TypeError):
+            return {}
 
     return app

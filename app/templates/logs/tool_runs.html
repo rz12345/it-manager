@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block title %}工具紀錄 — IT Manager{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <h3 class="mb-0"><i class="bi bi-clock-history me-2"></i>紀錄</h3>
+</div>
+
+{% include '_log_tabs.html' %}
+
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <input type="hidden" name="tab" value="tool">
+            <div class="col-auto"><label class="form-label mb-0 small">工具</label></div>
+            <div class="col-auto">
+                <select name="tool" class="form-select form-select-sm">
+                    <option value="">全部</option>
+                    <option value="mac_trace" {% if selected_tool=='mac_trace' %}selected{% endif %}>MAC 追蹤</option>
+                </select>
+            </div>
+            <div class="col-auto"><label class="form-label mb-0 small">狀態</label></div>
+            <div class="col-auto">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">全部</option>
+                    <option value="running" {% if selected_status=='running' %}selected{% endif %}>執行中</option>
+                    <option value="success" {% if selected_status=='success' %}selected{% endif %}>成功</option>
+                    <option value="not_found" {% if selected_status=='not_found' %}selected{% endif %}>未找到</option>
+                    <option value="failed" {% if selected_status=='failed' %}selected{% endif %}>失敗</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-sm btn-primary" type="submit">
+                    <i class="bi bi-funnel"></i> 篩選
+                </button>
+                <a href="{{ url_for('logs.index', tab='tool') }}" class="btn btn-sm btn-outline-secondary">清除</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>時間</th>
+                    <th>使用者</th>
+                    <th>工具</th>
+                    <th>查詢內容</th>
+                    <th class="text-center">狀態</th>
+                    <th>摘要</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in runs.items %}
+                {% set q = (r.query_json | from_json) if r.query_json else {} %}
+                {% set res = (r.result_json | from_json) if r.result_json else {} %}
+                <tr>
+                    <td class="small text-nowrap">{{ r.started_at|localtime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>{{ r.user.username if r.user else '—' }}</td>
+                    <td>
+                        {% if r.tool_name == 'mac_trace' %}
+                            <span class="badge bg-info text-dark"><i class="bi bi-diagram-3 me-1"></i>MAC 追蹤</span>
+                        {% else %}
+                            <span class="badge bg-light text-dark">{{ r.tool_name }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="small"><code>{{ q.get('mac_raw') or q.get('mac') or '—' }}</code></td>
+                    <td class="text-center">
+                        {% if r.status == 'success' %}
+                            <span class="badge bg-success">成功</span>
+                        {% elif r.status == 'not_found' %}
+                            <span class="badge bg-warning text-dark">未找到</span>
+                        {% elif r.status == 'running' %}
+                            <span class="badge bg-secondary">執行中</span>
+                        {% else %}
+                            <span class="badge bg-danger">失敗</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted">
+                        {{ res.get('message') or r.error_message or '—' }}
+                    </td>
+                    <td class="text-end">
+                        {% if r.tool_name == 'mac_trace' %}
+                        <a href="{{ url_for('tools.mac_trace_detail', run_id=r.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> 詳情
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted py-4">尚無工具紀錄。</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if runs.pages > 1 %}
+{% set extra = '' %}
+{% if selected_tool %}{% set extra = extra + '&tool=' + selected_tool %}{% endif %}
+{% if selected_status %}{% set extra = extra + '&status=' + selected_status %}{% endif %}
+<nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% for p in runs.iter_pages() %}
+            {% if p %}
+                <li class="page-item {% if p == runs.page %}active{% endif %}">
+                    <a class="page-link" href="?tab=tool&page={{ p }}{{ extra }}">{{ p }}</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

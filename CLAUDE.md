@@ -32,7 +32,7 @@
 ## 核心慣例
 
 ### 通用（必守）
-- Blueprint 各自獨立：`auth`、`dashboard`、`assets`、`hosts`、`devices`、`groups`、`credentials`、`tasks`、`email_tasks`、`templates_mgr`、`scrapers`、`backups`、`compare`、`logs`、`settings`
+- Blueprint 各自獨立：`auth`、`dashboard`、`assets`、`hosts`、`devices`、`groups`、`credentials`、`tasks`、`email_tasks`、`templates_mgr`、`scrapers`、`backups`、`compare`、`logs`、`tools`、`settings`
 - 所有時間欄位統一使用 UTC，前端顯示時再轉換時區（`DISPLAY_TZ`）
 - SSH / 設備密碼**必須**透過 `app/crypto.py` 的 `encrypt()` / `safe_decrypt()` 存取，禁止明文寫入 DB
 - 排程腳本（`scheduler/`）直接存取 DB，不經過 Flask HTTP

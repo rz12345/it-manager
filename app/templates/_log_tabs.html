@@ -19,4 +19,10 @@
             <i class="bi bi-person-lines-fill me-1"></i>使用者紀錄
         </a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link {% if _tab == 'tool' %}active{% endif %}"
+           href="{{ url_for('logs.index', tab='tool') }}">
+            <i class="bi bi-wrench-adjustable me-1"></i>工具
+        </a>
+    </li>
 </ul>

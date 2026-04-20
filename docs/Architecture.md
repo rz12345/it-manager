@@ -6,7 +6,7 @@
 - **資料庫**: SQLite（`data/sqlite.db`）
 - **排程**: Ubuntu Cron → `scheduler/runner.py`（單一主迴圈，分派 backup / email）
 - **Linux 主機備份**: Paramiko（SSH 密碼認證）
-- **網路設備備份**: Netmiko（Cisco / Aruba / Palo Alto CLI）
+- **網路設備備份**: Netmiko（Cisco / Aruba / Palo Alto / Zyxel CLI）
 - **Email 寄送**: smtplib + Jinja2 + MIMEMultipart（`scheduler/mailer.py`）
 - **Web 爬蟲**: Playwright（Chromium）+ BeautifulSoup4 + lxml（CSS / regex / JS 三種擷取模式）
 - **密碼加密**: cryptography.fernet（SSH / 設備密碼加密儲存於 DB）
@@ -40,7 +40,8 @@ it-manager/
 │   ├── scrapers/               # Web 爬蟲 CRUD（CSS / regex / JS 擷取）
 │   ├── backups/                # 備份歷史查詢與檔案下載
 │   ├── compare/                # 版本差異比較（side-by-side）
-│   ├── logs/                   # 使用者登入紀錄 + Email 寄送紀錄
+│   ├── logs/                   # 使用者登入紀錄 + Email 寄送紀錄 + 工具執行紀錄
+│   ├── tools/                  # IT 運維工具集（MAC 追蹤…；Admin 限定）
 │   ├── settings/               # 系統設定（Admin 專用）
 │   ├── config.py               # 環境設定載入
 │   ├── crypto.py               # Fernet 加/解密工具
@@ -114,5 +115,20 @@ it-manager/
 | Cisco SW | `cisco_ios` | `show running-config` |
 | Aruba SW | `aruba_os` | `show running-config` |
 | Palo Alto FW | `paloalto_panos` | `show config running` |
+| Zyxel SW | `zyxel_os` | `show running-config` |
 
 > 每台設備可在 `Device.backup_command` 欄位覆寫預設指令（空值則使用上表預設）。
+
+## 工具集（Tools）
+
+- Blueprint：`app/tools/`（全部 `@admin_required`），目錄結構：
+  - `mac_utils.py`：MAC 格式正規化（內部統一 12 hex），`format_for_vendor()` 轉廠商習慣格式
+  - `vendors.py`：各廠商的 `show mac address-table` 與 LLDP/CDP 指令字串與寬鬆解析器
+  - `mac_trace.py`：MAC 追蹤引擎（從指定起點 switch → hop by hop 走 LLDP/CDP → 直到 edge port / loop / max hops）
+  - `routes.py`：背景執行（`threading.Thread` + 前端輪詢 `/status`）；結果寫入 `ToolRun` 表
+- 支援廠商：`cisco_ios`、`aruba_os`（AOS-CX 與 ProCurve 兩種 CLI 語法皆涵蓋）、`zyxel_os`（Palo Alto 為防火牆無 L2 MAC 表，排除）
+- 起點 switch 為**必填**（每次查詢皆由使用者指定，不做自動掃描）
+- LAG / Port-Channel 展開：若 MAC 學到 `lag\d+` / `Trk\d+` / `Po\d+`，先查 LAG 成員再對實體 port 跑 LLDP；顯示時會標註「via 成員 port」
+- 每跳額外顯示 interface `description`（Cisco 用 `show interfaces ... description`；Aruba/Zyxel 從 `show running-config interface` 擷取）
+- 鄰居比對順序：LLDP/CDP 的 management IP 對 `Device.ip_address` → `system_name` 對 `Device.name`（含去 FQDN 後綴）；必須有 `system_name` 或 `mgmt_ip` 才算有效鄰居（避免 CLI 錯誤訊息誤判）
+- 歷史紀錄：新增 `ToolRun` 表（`tool_name` / `user_id` / `query_json` / `result_json` / `status`），於「紀錄 → 工具」頁籤查看；模型屬性特別避開 `query` 名稱以免與 Flask-SQLAlchemy `Model.query` 撞名

@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}MAC 追蹤紀錄 #{{ run.id }} — IT Manager{% endblock %}
+{% block content %}
+<div class="mx-auto" style="max-width: 960px;">
+    <div class="d-flex align-items-center mb-4">
+        <h3 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>MAC 追蹤紀錄 #{{ run.id }}</h3>
+        <a href="{{ url_for('tools.mac_trace_form') }}" class="btn btn-outline-primary btn-sm ms-auto">
+            <i class="bi bi-plus-circle"></i> 新追蹤
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <dl class="row mb-0 small">
+                <dt class="col-sm-3">MAC</dt>
+                <dd class="col-sm-9"><code>{{ query.get('mac_raw') or query.get('mac') }}</code></dd>
+                <dt class="col-sm-3">起點</dt>
+                <dd class="col-sm-9">設備 ID {{ query.get('start_device_id') }}</dd>
+                <dt class="col-sm-3">最大 hop 數</dt>
+                <dd class="col-sm-9">{{ query.get('max_hops', 10) }}</dd>
+                <dt class="col-sm-3">執行者</dt>
+                <dd class="col-sm-9">{{ run.user.username if run.user else '—' }}</dd>
+                <dt class="col-sm-3">開始時間</dt>
+                <dd class="col-sm-9">{{ run.started_at | localtime('%Y-%m-%d %H:%M:%S') }}</dd>
+                <dt class="col-sm-3">狀態</dt>
+                <dd class="col-sm-9">
+                    {% if run.status == 'success' %}
+                        <span class="badge bg-success">success</span>
+                    {% elif run.status == 'not_found' %}
+                        <span class="badge bg-warning text-dark">not_found</span>
+                    {% elif run.status == 'running' %}
+                        <span class="badge bg-secondary">running</span>
+                    {% else %}
+                        <span class="badge bg-danger">{{ run.status }}</span>
+                    {% endif %}
+                    {% if run.error_message %}
+                        <span class="text-danger small ms-2">{{ run.error_message }}</span>
+                    {% endif %}
+                </dd>
+                {% if result.get('message') %}
+                <dt class="col-sm-3">摘要</dt>
+                <dd class="col-sm-9">{{ result.get('message') }}</dd>
+                {% endif %}
+            </dl>
+        </div>
+    </div>
+
+    <h5 class="mb-3">追蹤路徑</h5>
+    {% set hops = result.get('hops') or [] %}
+    {% if not hops %}
+        <div class="text-muted">（無結果）</div>
+    {% else %}
+    <div class="trace-timeline">
+        {% for h in hops %}
+        <div class="card border-0 shadow-sm hop-card">
+            <div class="card-body py-3">
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-primary me-2">跳 {{ h.seq }}</span>
+                    <strong>{{ h.device_name }}</strong>
+                    <span class="text-muted small ms-2">({{ h.vendor }})</span>
+                    <span class="ms-auto">
+                        port <code>{{ h.port or '?' }}</code>
+                        {% if h.vlan %}<span class="ms-2">VLAN <code>{{ h.vlan }}</code></span>{% endif %}
+                    </span>
+                </div>
+                {% if h.port_desc %}
+                <div class="small text-muted mt-1">介面描述：<code>{{ h.port_desc }}</code></div>
+                {% endif %}
+                {% if h.lag_members %}
+                <div class="small text-muted mt-1">LAG 成員：
+                    {% for p in h.lag_members %}<code>{{ p }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+                </div>
+                {% endif %}
+                <div class="mt-2">
+                    {% if h.neighbor %}
+                        <div class="small text-muted">LLDP/CDP 鄰居：
+                            <code>{{ h.neighbor.system_name or '?' }}</code>
+                            {% if h.neighbor.mgmt_ip %} @ <code>{{ h.neighbor.mgmt_ip }}</code>{% endif %}
+                            {% if h.neighbor.remote_port %}（remote port <code>{{ h.neighbor.remote_port }}</code>）{% endif %}
+                            {% if h.neighbor_via %}<span class="ms-1">（via 成員 port <code>{{ h.neighbor_via }}</code>）</span>{% endif %}
+                        </div>
+                    {% else %}
+                        <div class="small text-success"><i class="bi bi-check-circle"></i> Edge port（無 LLDP/CDP 鄰居）</div>
+                    {% endif %}
+                </div>
+                {% if h.note %}
+                <div class="small text-warning mt-1">
+                    <i class="bi bi-exclamation-triangle"></i> {{ h.note }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% if not loop.last %}
+            <div class="hop-arrow text-center text-muted my-1"><i class="bi bi-arrow-down"></i></div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+<style>
+.trace-timeline .hop-card + .hop-card { margin-top: .5rem; }
+</style>
+{% endblock %}

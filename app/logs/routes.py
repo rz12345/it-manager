@@ -3,7 +3,8 @@ from flask_login import current_user, login_required
 
 from app import db
 from app.logs import bp
-from app.models import (BackupRun, Device, EmailRun, Host, LoginLog, Task)
+from app.models import (BackupRun, Device, EmailRun, Host, LoginLog, Task,
+                        ToolRun)
 
 
 def _visible_backup_runs_query():
@@ -27,7 +28,7 @@ def _visible_backup_runs_query():
 @login_required
 def index():
     tab = request.args.get('tab', 'backup')
-    if tab not in ('backup', 'email', 'user'):
+    if tab not in ('backup', 'email', 'user', 'tool'):
         tab = 'backup'
 
     page = request.args.get('page', 1, type=int)
@@ -70,6 +71,25 @@ def index():
         ctx['selected_status'] = status
         ctx['selected_task_id'] = task_id
         return render_template('logs/email_runs.html', **ctx)
+
+    if tab == 'tool':
+        tool_name = request.args.get('tool', '').strip()
+        status = request.args.get('status', '').strip()
+
+        if current_user.is_admin:
+            q = ToolRun.query
+        else:
+            q = ToolRun.query.filter_by(user_id=current_user.id)
+        if tool_name:
+            q = q.filter(ToolRun.tool_name == tool_name)
+        if status in ('running', 'success', 'not_found', 'failed'):
+            q = q.filter(ToolRun.status == status)
+
+        ctx['runs'] = q.order_by(ToolRun.started_at.desc()).paginate(
+            page=page, per_page=20, error_out=False)
+        ctx['selected_tool'] = tool_name
+        ctx['selected_status'] = status
+        return render_template('logs/tool_runs.html', **ctx)
 
     # tab == 'user'
     action = request.args.get('action', '').strip()

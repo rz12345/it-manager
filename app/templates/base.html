@@ -67,6 +67,12 @@
                 </li>
                 {% if current_user.is_admin %}
                 <li class="nav-item">
+                    <a class="nav-link {% if ep.startswith('tools.') %}active{% endif %}"
+                       href="{{ url_for('tools.index') }}">
+                        <i class="bi bi-wrench-adjustable"></i> 工具
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {% if ep.startswith('settings.') or ep.startswith('groups.') %}active{% endif %}"
                        href="{{ url_for('settings.index') }}">
                         <i class="bi bi-gear"></i> 設定
@@ -191,6 +197,8 @@
     '紀錄 — 備份':           url_for('logs.index', tab='backup'),
     '紀錄 — Email':          url_for('logs.index', tab='email'),
     '紀錄 — 使用者活動':     url_for('logs.index', tab='user'),
+    '紀錄 — 工具':           url_for('logs.index', tab='tool'),
+    '工具 — MAC 追蹤':       url_for('tools.mac_trace_form'),
 } | tojson }}
 </script>
 {% endif %}
