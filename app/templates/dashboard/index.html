@@ -86,7 +86,7 @@
         <span class="ms-auto small text-muted">每日成功／失敗／部分</span>
     </div>
     <div class="card-body">
-        <canvas id="trendChart" height="80"
+        <canvas id="trendChart" height="200"
                 data-labels='{{ daily_backup.labels|tojson }}'
                 data-success='{{ daily_backup.s|tojson }}'
                 data-failed='{{ daily_backup.f|tojson }}'
@@ -220,7 +220,7 @@
         <span class="ms-auto small text-muted">每日成功／失敗</span>
     </div>
     <div class="card-body">
-        <canvas id="trendChart" height="80"
+        <canvas id="trendChart" height="200"
                 data-labels='{{ daily_email.labels|tojson }}'
                 data-success='{{ daily_email.s|tojson }}'
                 data-failed='{{ daily_email.f|tojson }}'></canvas>
