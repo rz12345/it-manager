@@ -62,13 +62,19 @@ def _build_message(from_addr, task, template_path, attachments):
     msg['Subject'] = _JinjaTemplate(task['subject']).render(**render_vars)
     msg.attach(MIMEText(html_body, 'html', 'utf-8'))
 
+    missing = []
     for att in attachments:
         if not os.path.exists(att['storage_path']):
+            missing.append(att['filename'])
             continue
         with open(att['storage_path'], 'rb') as f:
             part = MIMEApplication(f.read())
         part.add_header('Content-Disposition', 'attachment', filename=att['filename'])
         msg.attach(part)
+
+    if missing:
+        # 寧可不寄也不要漏附件：讓 run 標成 failed/partial 並把缺檔名稱寫進 error_message
+        raise FileNotFoundError(f'附件檔案不存在: {", ".join(missing)}')
 
     return msg
 
@@ -98,11 +104,13 @@ def send_email(task: dict, template_path: str, attachments: list, smtp_cfg: dict
 
     recipients = [r.strip() for r in task['recipients'].split(',') if r.strip()]
 
+    # 模板渲染與附件檢查屬於非暫態錯誤，先 build 再連 SMTP；缺檔/模板找不到時直接拋例外
+    msg = _build_message(from_addr, task, template_path, attachments)
+
     last_exc = None
     for attempt in range(2):
         try:
             conn = _smtp_connect(host, port, user, password)
-            msg = _build_message(from_addr, task, template_path, attachments)
             conn.sendmail(from_addr or user, recipients, msg.as_string())
             conn.quit()
             return

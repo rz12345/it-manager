@@ -2,6 +2,18 @@
 
 <!-- 格式：## YYYY-MM-DD，底下依分類列出完成項目 -->
 
+## 2026-05-04（修掉郵件附件 silent skip）
+
+### Bug 修復
+- `scheduler/mailer.py`：附件檔案不存在時不再悄悄 `continue`，改為收集缺檔清單後 `raise FileNotFoundError('附件檔案不存在: …')`。
+- 之前的行為會讓 `EmailRun.status='success'`、`error_message=None`、`file_count=正常數量`，但實際附件全被丟掉、Dashboard 也不會告警，導致使用者完全無感。
+- 由 `scheduler/email_task.run_email_task` 既有的 `try/except` 接住此例外，正確標記 run 為 `failed`/`partial` 並寫入 `error_message`。
+
+### 微調
+- `send_email`：把 `_build_message` 移到 retry 迴圈外。模板找不到 / 附件缺檔屬於非暫態錯誤，沒必要先連 SMTP 再失敗、也沒必要 sleep 5 秒重試。
+
+---
+
 ## 2026-04-20（新增「工具」選單與 MAC 追蹤）
 
 ### 功能新增
